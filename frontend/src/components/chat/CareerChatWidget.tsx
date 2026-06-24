@@ -136,7 +136,7 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
               <div className="flex items-center gap-2 text-white">
                 <Sparkles size={18} />
                 <div>
-                  <p className="text-sm font-bold leading-none">Vertex Assistant</p>
+                  <p className="text-sm font-bold leading-none">PrepUp Assistant</p>
                   <p className="text-[10px] text-white/80 mt-0.5">
                     {ctx.loggedIn ? 'Knows your profile & scores' : 'Platform guide'}
                   </p>
@@ -210,7 +210,7 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder={ctx.loggedIn ? 'Ask anything…' : 'Ask about Vertex…'}
+                placeholder={ctx.loggedIn ? 'Ask anything…' : 'Ask about PrepUp…'}
                 className="flex-1 rounded-xl px-3 py-2.5 text-sm border outline-none focus:border-[#1E56C0]"
                 style={{ background: 'var(--bg-muted)', borderColor: 'var(--border)', color: 'var(--text)' }}
               />
@@ -240,7 +240,7 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
           right: '1rem',
           display: open ? 'none' : 'flex',
         }}
-        aria-label="Open Vertex assistant"
+        aria-label="Open PrepUp assistant"
       >
         <MessageCircle size={22} />
       </button>

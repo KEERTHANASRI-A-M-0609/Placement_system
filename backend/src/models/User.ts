@@ -36,6 +36,7 @@ export interface IUser extends Document {
     emailInactive?: boolean
     whatsappInactive?: boolean
     emailDigest?: boolean
+    emailAlerts?: boolean
     whatsappEnabled?: boolean
     whatsappUrgent?: boolean
     whatsappDailyDigest?: boolean
@@ -45,7 +46,16 @@ export interface IUser extends Document {
   lastInactiveReminderDays?: number
   lastDailyDigestDate?: string
   lastWeeklyReportDate?: string
+  lastDailyChallengeDate?: string
   knowledgeData?: Record<string, unknown>
+  intelligenceEvents?: {
+    phase: 'identity' | 'evidence' | 'intelligence' | 'execution'
+    type: string
+    title: string
+    impact: string
+    meta?: Record<string, unknown>
+    at: Date
+  }[]
   comparePassword(candidate: string): Promise<boolean>
 }
 
@@ -84,6 +94,7 @@ const userSchema = new Schema<IUser>({
     emailInactive: { type: Boolean, default: true },
     whatsappInactive: { type: Boolean, default: true },
     emailDigest: { type: Boolean, default: true },
+    emailAlerts: { type: Boolean, default: true },
     whatsappEnabled: { type: Boolean, default: true },
     whatsappUrgent: { type: Boolean, default: true },
     whatsappDailyDigest: { type: Boolean, default: true },
@@ -93,7 +104,16 @@ const userSchema = new Schema<IUser>({
   lastInactiveReminderDays: { type: Number, default: 0 },
   lastDailyDigestDate: String,
   lastWeeklyReportDate: String,
+  lastDailyChallengeDate: String,
   knowledgeData: { type: Schema.Types.Mixed, default: null },
+  intelligenceEvents: [{
+    phase: { type: String, enum: ['identity', 'evidence', 'intelligence', 'execution'], required: true },
+    type: { type: String, required: true },
+    title: { type: String, required: true },
+    impact: { type: String, required: true },
+    meta: { type: Schema.Types.Mixed, default: {} },
+    at: { type: Date, default: Date.now },
+  }],
 })
 
 userSchema.pre('save', async function (next) {

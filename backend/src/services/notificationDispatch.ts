@@ -2,11 +2,9 @@ import { User } from '../models/User'
 
 import { Notification } from '../models/Notification'
 
-import { sendEmail } from './emailService'
-
 import { logger } from '../utils/logger'
 
-import { sendWhatsAppReliable } from './twilioWhatsApp'
+import { sendWhatsAppReliable, type WhatsAppSendResult } from './twilioWhatsApp'
 
 
 
@@ -26,8 +24,6 @@ export interface DispatchPayload {
 
   channels?: {
 
-    email?: boolean
-
     whatsapp?: boolean
 
   }
@@ -36,9 +32,19 @@ export interface DispatchPayload {
 
 
 
+export type DispatchResult = {
+
+  inApp: boolean
+
+  whatsapp?: WhatsAppSendResult
+
+}
+
+
+
 export const notificationDispatch = {
 
-  async createAndDispatch(userId: string, data: DispatchPayload) {
+  async createAndDispatch(userId: string, data: DispatchPayload): Promise<DispatchResult> {
 
     const { channels, ...notificationData } = data
 
@@ -62,37 +68,25 @@ export const notificationDispatch = {
 
 
 
-    // Skip duplicate outbound delivery when the in-app notification was deduped
+    const result: DispatchResult = { inApp: !existing }
 
-    if (existing) return
+
+
+    if (existing) return result
 
 
 
     const user = await User.findById(userId)
 
-    if (!user) return
+    if (!user) return result
 
 
+
+    const prefs = user.notificationPrefs ?? {}
 
     const fullMessage = `${notificationData.title}\n\n${notificationData.message}`
 
-    const sendEmailChannel = channels?.email !== false
-
-    const sendWhatsAppChannel = channels?.whatsapp !== false
-
-
-
-    if (user.email && sendEmailChannel) {
-
-      const result = await sendEmail(user.email, notificationData.title, notificationData.message)
-
-      if (result.mode === 'logged') {
-
-        logger.info(`[Dispatch] Email logged (SMTP not configured) for ${user.email}`)
-
-      }
-
-    }
+    const whatsappAllowed = channels?.whatsapp !== false && prefs.whatsappEnabled !== false
 
 
 
@@ -102,13 +96,15 @@ export const notificationDispatch = {
 
       phone &&
 
-      sendWhatsAppChannel &&
+      whatsappAllowed &&
 
       (notificationData.type === 'danger' || notificationData.type === 'warning' || notificationData.type === 'success' || notificationData.type === 'info')
 
     ) {
 
       const wa = await sendWhatsAppReliable(phone, fullMessage)
+
+      result.whatsapp = wa
 
       if (wa.status === 'error') {
 
@@ -118,16 +114,11 @@ export const notificationDispatch = {
 
     }
 
-  },
 
 
-
-  async dispatchEmailOnly(email: string, title: string, message: string) {
-
-    return sendEmail(email, title, message)
+    return result
 
   },
 
 }
-
 

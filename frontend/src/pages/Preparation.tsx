@@ -239,7 +239,7 @@ export default function Preparation() {
             <div className="card p-10 text-center space-y-4">
               <p className="font-semibold text-lg" style={{ color: 'var(--text)' }}>No projects added yet</p>
               <p className="text-sm max-w-sm mx-auto" style={{ color: 'var(--text-2)' }}>
-                Add your projects. Vertex will analyse their quality based on GitHub presence, deployment status, and tech stack relevance.
+                Add your projects. PrepUp will analyse their quality based on GitHub presence, deployment status, and tech stack relevance.
               </p>
               <button onClick={() => setShowProjForm(true)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
@@ -313,7 +313,7 @@ export default function Preparation() {
               <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Add Project</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { key: 'name',        label: 'Project Name',    placeholder: 'Vertex' },
+                  { key: 'name',        label: 'Project Name',    placeholder: 'PrepUp' },
                   { key: 'description', label: 'Description',     placeholder: 'Placement intelligence platform' },
                   { key: 'github',      label: 'GitHub URL',      placeholder: 'github.com/you/project' },
                   { key: 'demo',        label: 'Live Demo URL',   placeholder: 'project.vercel.app' },
@@ -473,7 +473,7 @@ export default function Preparation() {
             <div className="card p-8 text-center space-y-3">
               <p className="font-semibold" style={{ color: 'var(--text)' }}>No resources yet</p>
               <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-                Complete the assessment — Vertex will recommend resources based on your actual weak areas.
+                Complete the assessment — PrepUp will recommend resources based on your actual weak areas.
               </p>
             </div>
           )}

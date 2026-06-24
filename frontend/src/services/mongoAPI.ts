@@ -3,16 +3,38 @@ import type { AssessmentModuleId } from '../engine/assessmentEngine'
 
 const BASE = import.meta.env.VITE_MONGO_API_URL || 'http://localhost:5000'
 
-const TOKEN_KEY = 'cos_mongo_token'
+import { MONGO_TOKEN_KEY } from './storageKeys'
 
 export function getMongoToken(): string | null {
-  try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
+  try { return localStorage.getItem(MONGO_TOKEN_KEY) } catch { return null }
 }
 
 export function setMongoToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
+  if (token) localStorage.setItem(MONGO_TOKEN_KEY, token)
+  else localStorage.removeItem(MONGO_TOKEN_KEY)
 }
+
+/** Returns false if token is missing, malformed, or past JWT exp. */
+export function isMongoTokenValid(): boolean {
+  const token = getMongoToken()
+  if (!token) return false
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    if (payload.exp && payload.exp * 1000 < Date.now() + 30_000) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearMongoTokenIfInvalid(): boolean {
+  if (!getMongoToken()) return false
+  if (isMongoTokenValid()) return true
+  setMongoToken(null)
+  return false
+}
+
+const AUTH_ERROR = /invalid or expired token|missing or invalid authorization/i
 
 async function req<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -27,7 +49,12 @@ async function req<T>(method: string, path: string, body?: unknown, auth = true)
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || err.message || res.statusText)
+    const msg = err.error || err.message || err.detail || res.statusText
+    const text = typeof msg === 'string' ? msg : JSON.stringify(msg)
+    if (auth && res.status === 401 && AUTH_ERROR.test(text)) {
+      setMongoToken(null)
+    }
+    throw new Error(text)
   }
   return res.json()
 }
@@ -81,10 +108,11 @@ export const mongoAPI = {
     message: string
     type: 'info' | 'warning' | 'success' | 'danger'
     moduleId?: string
+    channels?: { whatsapp?: boolean }
   }) => req<{ success: boolean }>('POST', '/api/notifications/dispatch', data),
 
   getNotificationStatus: () =>
-    req<{ emailConfigured: boolean; whatsappConfigured: boolean; pythonApi: string }>('GET', '/api/notifications/status'),
+    req<{ whatsappConfigured: boolean; pythonApi: string }>('GET', '/api/notifications/status'),
 
   whatsappDigest: (payload: Record<string, unknown>) =>
     req<{ status: string; sid?: string; reason?: string; to?: string; hint?: string; twilio_status?: string }>(
@@ -114,19 +142,32 @@ export const mongoAPI = {
       'POST', '/api/notifications/trigger/weekly-report', {},
     ),
 
-  sendTestEmail: (data: { title?: string; message?: string }) =>
-    req<{ sent: boolean; mode: string }>('POST', '/api/notifications/email', data),
+  triggerDailyChallenge: () =>
+    req<{
+      sent: boolean
+      inApp?: boolean
+      deliveredLive?: boolean
+      whatsappDelivered?: boolean
+      whatsappHint?: string
+      hint?: string
+      reason?: string
+      title?: string
+      message?: string
+      skipped?: boolean
+    }>('POST', '/api/notifications/trigger/daily-challenge', {}),
+
+  getDailyChallenge: () =>
+    req<{ title: string; slug: string; difficulty: string; topic: string; estimatedMins: number; url: string; date: string }>(
+      'GET', '/api/notifications/daily-challenge',
+    ),
 
   syncActivitySession: (data: {
     activityLog?: { date: string; tasksCompleted: number; hoursSpent: number; verifiedTasks?: number; executions?: number }[]
     notificationPrefs?: Record<string, boolean>
     phone?: string
-  }) => req<{ success: boolean; daysInactive: number; shouldAlert: boolean }>(
+  }  ) => req<{ success: boolean; daysInactive: number; shouldAlert: boolean }>(
     'PUT', '/api/notifications/sync-session', data,
   ),
-
-  sendTestInactiveEmail: () =>
-    req<{ sent: boolean; mode: string }>('POST', '/api/notifications/test-inactive-email', {}),
 
   generateDailyPlan: (data: {
     date?: string
@@ -178,8 +219,22 @@ export const mongoAPI = {
       failures: FailureEntry[]
       activityLog: { date: string; tasksCompleted: number; hoursSpent: number; verifiedTasks?: number; executions?: number }[]
       knowledgeData?: KnowledgeData | null
+      intelligenceEvents?: { phase: string; type: string; title: string; impact: string; at: string; meta?: Record<string, unknown> }[]
       syncedAt: string
     }>('GET', '/api/users/session'),
+
+  getIntelligenceEvents: (limit = 40) =>
+    req<{ events: { phase: string; type: string; title: string; impact: string; at: string }[]; syncedAt: string }>(
+      'GET', `/api/users/intelligence-events?limit=${limit}`,
+    ),
+
+  recordIntelligenceEvent: (data: {
+    phase: 'identity' | 'evidence' | 'intelligence' | 'execution'
+    type: string
+    title: string
+    impact: string
+    meta?: Record<string, unknown>
+  }) => req<{ event: Record<string, unknown>; syncedAt: string }>('POST', '/api/users/intelligence-events', data),
 }
 
 export function profileToMongoRegister(user: UserProfile, password: string) {

@@ -17,11 +17,11 @@ def build_status_message(profile: dict) -> str:
     streak = profile.get("streak", 0)
     overall = profile.get("overall_readiness")
 
-    lines = [f"📊 *CareerOS Status — {name}*", f"Role track: {domain}"]
+    lines = [f"📊 *PrepUp Status — {name}*", f"Role track: {domain}"]
 
     if not assessed:
         lines.append("\n⚠️ Assessment not complete yet.")
-        lines.append("Open CareerOS → take assessment to unlock your readiness score.")
+        lines.append("Open PrepUp → take assessment to unlock your readiness score.")
         return "\n".join(lines)
 
     if overall is not None:
@@ -81,7 +81,7 @@ def build_resources_message(profile: dict) -> str:
 
 def build_help_message() -> str:
     return (
-        "🤖 *CareerOS WhatsApp Bot*\n\n"
+        "🤖 *PrepUp WhatsApp Bot*\n\n"
         "Commands (reply anytime):\n"
         "• *STATUS* — readiness scores & biggest gap\n"
         "• *RESOURCES* — picks based on weakness + your role\n"
@@ -104,7 +104,7 @@ def build_plan_message(profile: dict) -> str:
         "interview": "Log your last interview in Failure Intel",
     }
     if not gaps:
-        return f"📌 *Today's focus*\n\nExplore CareerOS Daily Planner for your {domain} track."
+        return f"📌 *Today's focus*\n\nExplore PrepUp Daily Planner for your {domain} track."
 
     top = gaps[0]
     key = top.get("key", "dsa")
@@ -232,7 +232,7 @@ def build_application_alert_message(app: dict) -> str:
         else:
             lines.append(f"Deadline: {deadline}")
     else:
-        lines.append("Deadline: not set — add one in CareerOS")
+        lines.append("Deadline: not set — add one in PrepUp")
 
     lines.append("\nReply *STATUS* for readiness · *PLAN* for today's focus")
     return "\n".join(lines)

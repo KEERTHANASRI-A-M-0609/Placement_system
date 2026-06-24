@@ -5,43 +5,155 @@ import {
   ArrowRight, Target, BarChart2, RefreshCcw, CheckCircle, TrendingUp, Zap,
   Users, Award, Code2, Activity, ChevronLeft, ChevronRight,
   Shield, Clock, RotateCcw, Headphones, Mic, Brain, Briefcase, FileText, X,
-  BookOpen, Flame, LineChart, MessageSquare, Calendar,
+  BookOpen, Flame, MessageSquare, Calendar,
 } from 'lucide-react'
 import { countByStatus } from '../data/careerModules'
 import CareerChatWidget from '../components/chat/CareerChatWidget'
+import PrepUpLogo from '../components/brand/PrepUpLogo'
+import FlashOfferStack, { type FlashOffer } from '../components/landing/FlashOfferStack'
 
 const MODULE_STATS = countByStatus()
 
+const FLASH_OFFERS: FlashOffer[] = [
+  {
+    id: 'readiness',
+    badge: 'LIVE',
+    badgeClass: 'deal-badge-hot',
+    headline: 'Free readiness report in 2 min',
+    sub: 'Resume + coding evidence → instant placement score',
+    cta: 'Claim now',
+    accent: '#1E56C0',
+  },
+  {
+    id: 'leetcode',
+    badge: 'SYNC',
+    badgeClass: 'deal-badge-new',
+    headline: 'LeetCode profile sync',
+    sub: 'Connect once — DSA score updates automatically',
+    cta: 'Connect',
+    accent: '#0D9488',
+  },
+  {
+    id: 'mock',
+    badge: 'NEW',
+    badgeClass: 'deal-badge-sale',
+    headline: 'AI mock interview — 10 min',
+    sub: 'Technical + HR feedback before your real round',
+    cta: 'Try free',
+    accent: '#7C3AED',
+  },
+  {
+    id: 'plan',
+    badge: 'DAILY',
+    badgeClass: 'deal-badge-hot',
+    headline: 'Auto-prioritized daily plan',
+    sub: 'One highest-impact task sized to your weekly hours',
+    cta: 'Get plan',
+    accent: '#EA580C',
+  },
+  {
+    id: 'pipeline',
+    badge: 'TRACK',
+    badgeClass: 'deal-badge-new',
+    headline: 'Application pipeline tracker',
+    sub: 'Wishlist → OA → interviews → offer in one board',
+    cta: 'Start tracking',
+    accent: '#059669',
+  },
+]
+
 const HERO_SLIDES = [
   {
-    title: 'Know Your Real Readiness',
-    subtitle: 'Evidence-based scoring from LeetCode, GitHub, and assessments — not guesswork',
-    cta: 'Start Free Assessment',
-    tag: 'Placement Intelligence',
-    gradient: 'linear-gradient(105deg, rgba(30,86,192,0.92) 0%, rgba(13,148,136,0.88) 55%, rgba(15,23,42,0.85) 100%)',
+    title: 'Placement Intelligence Platform',
+    subtitle: 'From preparation data to placement decisions — one unified system for readiness, gaps, and execution.',
+    cta: 'Define Your Goal',
+    tag: 'Data → Intelligence → Action → Outcome',
+    gradient: 'linear-gradient(105deg, rgba(15,23,42,0.94) 0%, rgba(30,86,192,0.88) 45%, rgba(13,148,136,0.85) 100%)',
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1400&q=80&auto=format&fit=crop',
+    metric: { label: 'Career Blueprint', value: 'Identity → Evidence', delta: 'Personalized to role, domain & companies', color: '#6EE7B7' },
+    priority: { title: 'Intelligence Layer', task: 'Readiness · Gaps · Momentum · Risk', impact: 'Know exactly where you stand today' },
+  },
+  {
+    title: 'Connect Your Evidence',
+    subtitle: 'Resume, GitHub, coding platforms, assessments, projects, and applications — unified into one evidence graph.',
+    cta: 'Connect Evidence',
+    tag: 'Unified Evidence Graph',
+    gradient: 'linear-gradient(105deg, rgba(30,86,192,0.92) 0%, rgba(15,23,42,0.9) 50%, rgba(124,58,237,0.88) 100%)',
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&q=80&auto=format&fit=crop',
+    metric: { label: 'Evidence Sources', value: '12+ signals', delta: 'Scattered prep → structured intelligence', color: '#93C5FD' },
+    priority: { title: 'Data Ingestion', task: 'LeetCode · GitHub · Resume · Voice', impact: 'Transforms fragments into placement truth' },
+  },
+  {
+    title: 'Execute With Precision',
+    subtitle: 'One platform. One readiness score. One highest-impact action — every single day.',
+    cta: 'Start Execution',
+    tag: 'Daily Action Engine',
+    gradient: 'linear-gradient(105deg, rgba(13,148,136,0.92) 0%, rgba(30,86,192,0.88) 55%, rgba(15,23,42,0.92) 100%)',
     image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1400&q=80&auto=format&fit=crop',
-    metric: { label: 'Readiness Score', value: 'Your profile', delta: 'Built from your assessment data', color: '#059669' },
-    priority: { title: "Today's Priority", task: 'One focused task from your plan', impact: 'Role + company aware · daily' },
+    metric: { label: 'Action Layer', value: 'Prioritized', delta: 'Recovery plans · growth paths · tracking', color: '#5EEAD4' },
+    priority: { title: 'Outcome Focus', task: 'Daily priorities aligned to placement success', impact: 'Move continuously toward your target role' },
+  },
+]
+
+const ENTERPRISE_PIPELINE = [
+  {
+    num: '01',
+    title: 'Define Your Goal',
+    line: 'Role · Domain · Target Companies',
+    phase: 'Identity',
+    outcome: 'Creates a personalized career blueprint.',
   },
   {
-    title: 'Close Your Skill Gaps',
-    subtitle: 'AI finds your #1 blocker and tells you exactly what to work on today',
-    cta: 'See My Gaps',
-    tag: 'Gap Analysis',
-    gradient: 'linear-gradient(105deg, rgba(124,58,237,0.88) 0%, rgba(30,86,192,0.9) 50%, rgba(15,23,42,0.88) 100%)',
-    image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1400&q=80&auto=format&fit=crop',
-    metric: { label: 'Gap Analysis', value: 'Ranked gaps', delta: 'Prioritized for your domain', color: '#D97706' },
-    priority: { title: 'Recommended', task: 'Resources matched to weaknesses', impact: 'From your Career Health scores' },
+    num: '02',
+    title: 'Connect Your Evidence',
+    line: 'Resume · Coding · Projects · Assessments',
+    phase: 'Data',
+    outcome: 'Transforms scattered preparation into a unified evidence graph.',
   },
   {
-    title: 'Practice With Purpose',
-    subtitle: 'Mock interviews with instant AI feedback on communication and technical depth',
-    cta: 'Try Mock Interview',
-    tag: 'Interview Prep',
-    gradient: 'linear-gradient(105deg, rgba(13,148,136,0.9) 0%, rgba(30,86,192,0.85) 50%, rgba(15,23,42,0.9) 100%)',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1400&q=80&auto=format&fit=crop',
-    metric: { label: 'Interview Prep', value: 'Mock + voice', delta: 'Communication feedback in-app', color: '#0D9488' },
-    priority: { title: 'Next Session', task: 'Technical or HR mock interview', impact: 'Scores saved to Career Health' },
+    num: '03',
+    title: 'Unlock Placement Intelligence',
+    line: 'Readiness · Gaps · Momentum · Risks',
+    phase: 'Intelligence',
+    outcome: 'Know exactly where you stand today.',
+  },
+  {
+    num: '04',
+    title: 'Execute With Precision',
+    line: 'Daily Actions · Recovery Plans · Progress Tracking',
+    phase: 'Action',
+    outcome: 'Move continuously toward placement success.',
+  },
+]
+
+const HOW_IT_WORKS = [
+  {
+    step: '1',
+    phase: 'Build Your Career Identity',
+    title: 'Define role, domain, skills, and dream companies',
+    desc: 'Set your target role, domain, experience level, and companies. Creates a personalized career blueprint.',
+    img: 'photo-1522202176988-66273c2fd55f',
+  },
+  {
+    step: '2',
+    phase: 'Connect Your Evidence',
+    title: 'Resume, platforms, assessments, and applications',
+    desc: 'Resume, GitHub, coding platforms, projects, certifications, communication, and applications — unified.',
+    img: 'photo-1517694712202-14dd9538aa97',
+  },
+  {
+    step: '3',
+    phase: 'Generate Placement Intelligence',
+    title: 'Strengths, gaps, readiness, momentum, and risk',
+    desc: 'Analyze strengths, weaknesses, readiness, skill gaps, momentum, and risk areas. Know where you stand.',
+    img: 'photo-1552664730-d307ca884978',
+  },
+  {
+    step: '4',
+    phase: 'Execute the Highest-Impact Actions',
+    title: 'Daily priorities, recovery plans, and growth paths',
+    desc: 'Personalized daily priorities, recovery plans, and growth recommendations. Continuous placement progress.',
+    img: 'photo-1553877522-43269d4ea984',
   },
 ]
 
@@ -70,27 +182,27 @@ const CAPABILITIES = [
 ]
 
 const TRUST = [
-  { icon: Shield, title: 'Free to Start', sub: 'No credit card required' },
-  { icon: Clock, title: '3-Min Onboarding', sub: 'Profile and first assessment fast' },
-  { icon: RotateCcw, title: 'Evidence-Backed', sub: 'Scores from real platform data' },
-  { icon: Headphones, title: 'Smart Alerts', sub: 'In-app and WhatsApp digests' },
+  { icon: Shield, title: 'Enterprise-Grade Security', sub: 'Encrypted sessions & cloud persistence' },
+  { icon: Clock, title: 'Intelligence in Minutes', sub: 'Blueprint to first insight fast' },
+  { icon: RotateCcw, title: 'Evidence-Backed Decisions', sub: 'Scores from real platform data' },
+  { icon: Headphones, title: 'Proactive Alerts', sub: 'In-app and WhatsApp intelligence' },
 ]
 
 const TARGET_COMPANIES = ['Google', 'Amazon', 'Microsoft', 'Flipkart', 'Meta', 'Adobe', 'Goldman Sachs', 'Infosys', 'TCS', 'Accenture', 'PhonePe', 'Swiggy']
 
 const PLATFORM_HIGHLIGHTS = [
-  { icon: Target, title: 'Evidence-based scoring', desc: 'Readiness comes from your resume, coding, aptitude, and interview modules — not guesswork.' },
-  { icon: BarChart2, title: 'Domain-aware planning', desc: 'Daily tasks adapt to your target role and companies you select during onboarding.' },
-  { icon: Briefcase, title: 'Application pipeline', desc: 'Track wishlist through offer in one place, with deadline alerts when configured.' },
-  { icon: RefreshCcw, title: 'Failure intelligence', desc: 'Log rejections to spot patterns and get resource recommendations for weak areas.' },
+  { icon: Target, title: 'Career identity engine', desc: 'Role, domain, and company targets shape every intelligence output and action recommendation.' },
+  { icon: BarChart2, title: 'Placement intelligence', desc: 'Readiness, gaps, momentum, and risk — synthesized from your full evidence graph.' },
+  { icon: Briefcase, title: 'Execution orchestration', desc: 'Daily priorities, recovery plans, and pipeline tracking toward placement outcomes.' },
+  { icon: RefreshCcw, title: 'Continuous learning loop', desc: 'Every assessment and application refines your intelligence model and next best action.' },
 ]
 
 const ANNOUNCEMENTS = [
-  'Evidence-based readiness scoring from your Career Health modules',
-  'Daily priority actions tailored to your domain and target companies',
-  `${MODULE_STATS.live} live modules · ${MODULE_STATS.partial} in active development on the roadmap`,
-  'Company analysis validates which employers hire for your role on campus',
-  'Mock interviews with in-app communication feedback',
+  'Data → Intelligence → Action → Outcome — the PrepUp operating model',
+  'Unified evidence graph from resume, coding platforms, and assessments',
+  'Placement intelligence: readiness, gaps, momentum, and risk in one view',
+  `${MODULE_STATS.live} intelligence modules · ${MODULE_STATS.partial} on the product roadmap`,
+  'One readiness score. One highest-impact action. Every day.',
 ]
 
 const SLIDE_DURATION = 6000
@@ -160,12 +272,10 @@ export default function Landing() {
       <header className="landing-nav sticky top-0 z-50">
         <div className="landing-nav-inner">
           <button type="button" onClick={() => window.scrollTo({ top: 0 })} className="flex items-center gap-2.5 shrink-0">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1E56C0, #0D9488)' }}>
-              <Target size={22} className="text-white" />
-            </div>
+            <PrepUpLogo size={40} />
             <div className="text-left hidden sm:block">
-              <p className="font-bold text-slate-900 text-lg leading-none">Vertex</p>
-              <p className="text-[10px] text-slate-500 font-medium mt-0.5">Placement Intelligence</p>
+              <p className="font-bold text-slate-900 text-lg leading-none">PrepUp</p>
+              <p className="text-[10px] text-slate-500 font-medium mt-0.5">Placement intelligence platform</p>
             </div>
           </button>
 
@@ -252,29 +362,8 @@ export default function Landing() {
                 </motion.button>
               </div>
 
-              <div className="hidden lg:flex flex-col gap-4 mt-8 lg:mt-0">
-                <motion.div
-                  className="hero-glass-card hero-float"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.35 }}
-                >
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">{current.metric.label}</p>
-                  <p className="text-3xl font-bold mt-1" style={{ color: current.metric.color }}>{current.metric.value}</p>
-                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                    <LineChart size={12} /> {current.metric.delta}
-                  </p>
-                </motion.div>
-                <motion.div
-                  className="hero-glass-card hero-float-delay"
-                  initial={{ opacity: 0, x: 30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.45 }}
-                >
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">{current.priority.title}</p>
-                  <p className="text-sm font-bold text-slate-800 mt-1">{current.priority.task}</p>
-                  <p className="text-xs font-semibold mt-1" style={{ color: '#0D9488' }}>{current.priority.impact}</p>
-                </motion.div>
+              <div className="hidden lg:block relative min-w-[300px]">
+                <FlashOfferStack offers={FLASH_OFFERS} onCta={goLogin} position="hero" />
               </div>
             </div>
           </motion.div>
@@ -299,15 +388,58 @@ export default function Landing() {
         <div className="hero-progress" style={{ width: `${progress}%` }} />
       </section>
 
+      {/* Enterprise operating model — Data → Intelligence → Action → Outcome */}
+      <section className="page-container py-10 sm:py-12">
+        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] mb-3" style={{ color: '#1E56C0' }}>
+            Operating Model
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
+            Data → Intelligence → Action → Outcome
+          </h2>
+          <p className="text-base sm:text-lg text-slate-600 italic">
+            From preparation data to placement decisions.
+          </p>
+        </div>
+
+        <div className="enterprise-pipeline">
+          {ENTERPRISE_PIPELINE.map((item, i) => (
+            <motion.div
+              key={item.num}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              className="enterprise-pipeline-step"
+            >
+              <div className="enterprise-pipeline-num">{item.num}</div>
+              <div className="enterprise-pipeline-body">
+                <p className="enterprise-pipeline-phase">{item.phase}</p>
+                <h3 className="enterprise-pipeline-title">{item.title}</h3>
+                <p className="enterprise-pipeline-line">{item.line}</p>
+                <p className="enterprise-pipeline-outcome">{item.outcome}</p>
+              </div>
+              {i < ENTERPRISE_PIPELINE.length - 1 && (
+                <div className="enterprise-pipeline-arrow" aria-hidden>↓</div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        <p className="text-center text-sm sm:text-base font-medium text-slate-500 mt-8 max-w-2xl mx-auto">
+          One platform. One readiness score. One next action. Every day.
+        </p>
+      </section>
+
       {/* Placement modules — full grid */}
       <section id="modules" className="page-container py-8 sm:py-10">
         <div className="rounded-xl p-5 sm:p-8 shadow-sm border border-slate-200/80" style={{ background: '#fff' }}>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#0D9488' }}>{MODULES.length} Placement Tools</p>
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Everything for Placement Success</h2>
+              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#0D9488' }}>Placement Modules</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">End-to-End Placement Intelligence</h2>
               <p className="text-sm text-slate-500 mt-2 max-w-xl">
-                Assess, track, and improve every dimension of readiness — from DSA to mock interviews to company-specific prep.
+                Every module feeds the evidence graph — from identity and assessments to execution and outcome tracking.
               </p>
             </div>
             <button type="button" onClick={goLogin} className="btn-landing-primary shrink-0 self-start sm:self-auto">
@@ -374,8 +506,8 @@ export default function Landing() {
       <section id="capabilities" className="page-container py-6 sm:py-8">
         <div className="flex items-end justify-between gap-3 mb-5">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Platform Capabilities</h2>
-            <p className="text-sm text-slate-500 mt-1">Intelligence engines that power your placement journey</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Intelligence Engines</h2>
+            <p className="text-sm text-slate-500 mt-1">Core systems that power placement decisions</p>
           </div>
           <button type="button" onClick={goLogin} className="text-sm font-bold shrink-0" style={{ color: '#1E56C0' }}>
             View all →
@@ -432,12 +564,12 @@ export default function Landing() {
         <div className="rounded-2xl overflow-hidden shadow-lg flex flex-col lg:flex-row border border-slate-200">
           <div className="flex-1 p-8 sm:p-10 lg:p-12 bg-white">
             <p className="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">The Problem</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">6 tools. Zero clarity.</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">Fragmented data. Zero intelligence.</h2>
             <p className="text-slate-600 mb-6">
-              LeetCode, GitHub, Notion, Sheets… none answer: <strong>&quot;Am I placement-ready right now?&quot;</strong>
+              LeetCode, GitHub, Notion, Sheets — scattered signals with no unified model for readiness, risk, or next action.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {['Am I ready right now?', 'Why do I keep getting rejected?', 'What to focus on today?', 'How to recover momentum?'].map(q => (
+              {['Where do I stand today?', 'What is my #1 placement risk?', 'What should I execute now?', 'How do I recover momentum?'].map(q => (
                 <div key={q} className="flex items-center gap-2 text-sm text-slate-700 bg-red-50 px-3 py-2.5 rounded-lg border border-red-100">
                   <X size={14} className="text-red-500 shrink-0" /> {q}
                 </div>
@@ -453,8 +585,8 @@ export default function Landing() {
             <div className="absolute inset-0 p-8 sm:p-10 flex flex-col justify-end text-white"
               style={{ background: 'linear-gradient(to top, rgba(30,86,192,0.95) 0%, rgba(13,148,136,0.75) 60%, transparent 100%)' }}>
               <p className="text-xs font-bold uppercase tracking-wider text-blue-100 mb-2">The Solution</p>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">One platform. Full clarity.</h2>
-              <p className="text-white/90 mb-5 text-sm sm:text-base">Vertex unifies evidence, scores readiness, and gives you one daily priority action.</p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">One intelligence platform.</h2>
+              <p className="text-white/90 mb-5 text-sm sm:text-base">PrepUp unifies evidence, generates placement intelligence, and orchestrates daily execution toward outcomes.</p>
               <button type="button" onClick={goLogin} className="btn-commerce self-start">Get Started Free</button>
             </div>
           </div>
@@ -463,44 +595,47 @@ export default function Landing() {
 
       {/* How it works */}
       <section id="how-it-works" className="page-container py-10 sm:py-12">
-        <h2 className="text-2xl font-bold text-slate-900 mb-1 text-center">How It Works</h2>
-        <p className="text-sm text-slate-500 text-center mb-8">Four steps from profile to placement execution</p>
+        <div className="text-center mb-8 sm:mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">How It Works</h2>
+          <p className="text-sm text-slate-500 max-w-xl mx-auto">
+            Four phases from career identity to placement execution — not a checklist, an intelligence operating system.
+          </p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { step: '1', title: 'Create Profile', desc: 'Goal, domain, target companies — 3 minutes', img: 'photo-1522202176988-66273c2fd55f' },
-            { step: '2', title: 'Build Evidence', desc: 'Resume, coding, voice, and aptitude modules', img: 'photo-1517694712202-14dd9538aa97' },
-            { step: '3', title: 'Get Your Score', desc: 'Real readiness from integrated platform data', img: 'photo-1552664730-d307ca884978' },
-            { step: '4', title: 'Execute Daily', desc: 'One AI-prioritized action every morning', img: 'photo-1553877522-43269d4ea984' },
-          ].map((s, i) => (
+          {HOW_IT_WORKS.map((s, i) => (
             <motion.div
               key={s.step}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100 text-center"
+              className="bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100 flex flex-col"
             >
               <div className="h-32 relative overflow-hidden">
                 <img src={`https://images.unsplash.com/${s.img}?w=400&q=70&auto=format&fit=crop`} alt="" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 to-transparent" />
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg"
                   style={{ background: 'linear-gradient(135deg, #1E56C0, #0D9488)' }}>
                   {s.step}
                 </div>
               </div>
-              <div className="p-5">
-                <h3 className="font-bold text-slate-800 mb-2">{s.title}</h3>
-                <p className="text-xs text-slate-500">{s.desc}</p>
+              <div className="p-5 flex-1 flex flex-col text-left">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#1E56C0' }}>{s.phase}</p>
+                <h3 className="font-bold text-slate-800 text-sm mb-2 leading-snug">{s.title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed flex-1">{s.desc}</p>
               </div>
             </motion.div>
           ))}
         </div>
+        <blockquote className="mt-10 text-center text-base sm:text-lg font-medium text-slate-700 italic max-w-2xl mx-auto border-t border-slate-200 pt-8">
+          From preparation data to placement decisions.
+        </blockquote>
       </section>
 
       {/* Platform highlights — factual product capabilities */}
       <section className="page-container py-8 sm:py-10">
-        <h2 className="text-2xl font-bold text-slate-900 mb-1">What Vertex Does</h2>
-        <p className="text-sm text-slate-500 mb-5">Built-in tools — no inflated claims, only what the platform actually provides</p>
+        <h2 className="text-2xl font-bold text-slate-900 mb-1">Core Platform Capabilities</h2>
+        <p className="text-sm text-slate-500 mb-5">Identity, evidence, intelligence, and execution — unified</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLATFORM_HIGHLIGHTS.map((item, i) => {
             const Icon = item.icon
@@ -527,8 +662,8 @@ export default function Landing() {
       {/* Integrations */}
       <section className="page-container py-8 sm:py-10">
         <div className="rounded-xl p-6 sm:p-8 shadow-sm border border-slate-200 bg-white">
-          <p className="text-center text-base font-bold text-slate-800 mb-1">Data Integrations</p>
-          <p className="text-center text-xs text-slate-500 mb-6">Connect your existing prep tools for evidence-based scoring</p>
+          <p className="text-center text-base font-bold text-slate-800 mb-1">Evidence Integrations</p>
+          <p className="text-center text-xs text-slate-500 mb-6">Connect external signals into your unified evidence graph</p>
           <div className="flex flex-wrap justify-center gap-3">
             {[
               { icon: Code2, name: 'LeetCode', color: '#D97706' },
@@ -564,9 +699,9 @@ export default function Landing() {
             className="absolute inset-0 w-full h-full object-cover opacity-15"
           />
           <div className="relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Stop Guessing. Start Executing.</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Stop guessing. Start executing with intelligence.</h2>
             <p className="text-white/90 text-base sm:text-lg mb-8 max-w-lg mx-auto">
-              Replace scattered prep tabs with one platform that scores your real readiness and gives you a daily action plan.
+              Replace fragmented prep with a placement intelligence platform that tells you where you stand and what to do next.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <button type="button" onClick={goLogin} className="btn-commerce text-base px-10 py-3.5 font-bold">
@@ -593,11 +728,11 @@ export default function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
             <div className="sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <Target size={24} className="text-teal-400" />
-                <span className="font-bold text-white text-xl">Vertex</span>
+                <PrepUpLogo size={36} />
+                <span className="font-bold text-white text-xl">PrepUp</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Placement intelligence for engineering and product students. Readiness scoring, gap analysis, and daily execution in one platform.
+                Placement intelligence platform — from career identity and evidence to daily execution and outcomes.
               </p>
             </div>
             {[
@@ -616,7 +751,7 @@ export default function Landing() {
             ))}
           </div>
           <div className="pt-8 border-t border-slate-700 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <p>© {new Date().getFullYear()} Vertex · Placement Intelligence Platform</p>
+            <p>© {new Date().getFullYear()} PrepUp · Placement intelligence platform</p>
             <div className="flex gap-6">
               <button type="button" className="hover:text-white">Privacy</button>
               <button type="button" className="hover:text-white">Terms</button>
@@ -626,6 +761,7 @@ export default function Landing() {
         </div>
       </footer>
 
+      <FlashOfferStack offers={FLASH_OFFERS} onCta={goLogin} position="fixed" />
       <CareerChatWidget guest={!user} />
     </div>
   )

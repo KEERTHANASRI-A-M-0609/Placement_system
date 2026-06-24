@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { X, Code2, RefreshCcw, Loader2, CheckCircle2 } from 'lucide-react'
 import { fetchLeetCode } from '../../../services/platformAPI'
+import { parseLeetCodeUsername } from '../../../utils/leetcodeUsername'
 import { buildCodingProfile } from '../../../services/codingIntelligence'
 import type { PlatformData } from '../../../types'
 
@@ -21,18 +22,19 @@ export default function CodingIntelligenceModule({ platformData, onComplete, onC
   const [localPlatform, setLocalPlatform] = useState<PlatformData | null>(platformData)
 
   const fetchAll = async () => {
-    if (!lcUser.trim()) {
-      setError('Enter your LeetCode username')
+    const handle = parseLeetCodeUsername(lcUser)
+    if (!handle) {
+      setError('Enter your LeetCode username (e.g. neetcode) or paste your profile URL')
       return
     }
     setLoading(true)
     setError('')
     try {
-      const lc = await fetchLeetCode(lcUser.trim())
+      const lc = await fetchLeetCode(handle)
       const gh = platformData?.github ?? localPlatform?.github ?? null
       const data: PlatformData = { leetcode: lc, github: gh, fetchedAt: new Date().toISOString() }
       setLocalPlatform(data)
-      const p = buildCodingProfile(data, { leetcode: lcUser, hackerrank: hrUser, codechef: ccUser, github: gh?.username })
+      const p = buildCodingProfile(data, { leetcode: handle, hackerrank: hrUser, codechef: ccUser, github: gh?.username })
       setProfile(p)
     } catch (e) {
       setError((e as Error).message)
@@ -56,7 +58,7 @@ export default function CodingIntelligenceModule({ platformData, onComplete, onC
             LeetCode powers your DSA readiness score. Connect GitHub separately in the GitHub Intelligence module.
           </p>
           {[
-            { label: 'LeetCode', value: lcUser, set: setLcUser, ph: 'leetcode-username (required)' },
+            { label: 'LeetCode', value: lcUser, set: setLcUser, ph: 'neetcode or leetcode.com/u/yourname' },
             { label: 'HackerRank', value: hrUser, set: setHrUser, ph: 'hackerrank-username (optional)' },
             { label: 'CodeChef', value: ccUser, set: setCcUser, ph: 'codechef-username (optional)' },
           ].map(f => (
@@ -67,7 +69,14 @@ export default function CodingIntelligenceModule({ platformData, onComplete, onC
                 style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--text)' }} />
             </div>
           ))}
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && (
+            <p className="text-xs text-red-500 p-3 rounded-lg" style={{ background: '#FEF2F2' }}>
+              {error}
+              {error.includes('backend') || error.includes('rate limit') ? (
+                <span className="block mt-1 text-[var(--text-3)]">Tip: run <code>cd backend && npm run dev</code> for reliable platform fetching.</span>
+              ) : null}
+            </p>
+          )}
           <button onClick={fetchAll} disabled={loading}
             className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2">
             {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}

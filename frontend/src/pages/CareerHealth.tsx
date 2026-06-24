@@ -9,6 +9,7 @@ import {
   getAssessmentModuleCards,
   getAssessmentModuleGroups,
   getTopPriority,
+  getAssessmentBlockers,
   computeReadinessConfidence,
   applyAssessmentModule,
   ASSESSMENT_MODULES,
@@ -21,17 +22,18 @@ import ModuleLauncher from '../components/assessment/ModuleLauncher'
 import type { AptitudeEvidence, CommEvidence, MockInterviewSession, PlatformData, ResumeEvidence } from '../types'
 import { backendAPI } from '../services/api'
 import { mongoAPI, dashboardToAssessment } from '../services/mongoAPI'
+import { STORAGE_KEY, SKIPPED_MODULES_KEY } from '../services/storageKeys'
 
 export default function CareerHealth() {
   const {
-    user, assessment, platformData, updateAssessment, setPlatformData,
-    pushNotification, backendOnline, mongoOnline,
+    user, assessment, platformData, updateAssessment, syncAssessmentFromRemote, setPlatformData,
+    pushNotification, backendOnline, mongoOnline, recordExecution,
   } = useApp()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeModule, setActiveModule] = useState<AssessmentModuleId | null>(null)
   const [skippedModules, setSkippedModules] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem('cos_skipped_modules') || '{}') } catch { return {} }
+    try { return JSON.parse(localStorage.getItem(SKIPPED_MODULES_KEY) || '{}') } catch { return {} }
   })
   const [dismissedPriority, setDismissedPriority] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -47,6 +49,7 @@ export default function CareerHealth() {
 
   const cards = apiCards ?? localCards
   const moduleGroups = getAssessmentModuleGroups(domain, assessment, platformData, skippedModules)
+  const blockers = getAssessmentBlockers(domain, assessment, platformData)
   const priority = apiPriority ?? localPriority
   const confidence = apiConfidence ?? localConfidence
   const showPriority = priority && dismissedPriority !== priority.moduleId
@@ -57,18 +60,18 @@ export default function CareerHealth() {
     try {
       const dash = await mongoAPI.getDashboard()
       const { assessment: a, platformData: pd, skippedModules: skipped } = dashboardToAssessment(dash)
-      if (a) updateAssessment(a)
+      if (a) syncAssessmentFromRemote(a)
       if (pd) setPlatformData(pd)
       if (skipped) {
         setSkippedModules(skipped)
-        localStorage.setItem('cos_skipped_modules', JSON.stringify(skipped))
+        localStorage.setItem(SKIPPED_MODULES_KEY, JSON.stringify(skipped))
       }
       setApiCards(dash.cards as ReturnType<typeof getAssessmentModuleCards>)
       setApiPriority(dash.priority)
       setApiConfidence(dash.confidence)
     } catch { /* fallback to local */ }
     setLoading(false)
-  }, [mongoOnline, updateAssessment, setPlatformData])
+  }, [mongoOnline, syncAssessmentFromRemote, setPlatformData])
 
   useEffect(() => { refreshFromMongo() }, [refreshFromMongo])
 
@@ -83,7 +86,7 @@ export default function CareerHealth() {
   const persistSkip = async (id: AssessmentModuleId) => {
     const next = { ...skippedModules, [id]: new Date().toISOString() }
     setSkippedModules(next)
-    localStorage.setItem('cos_skipped_modules', JSON.stringify(next))
+    localStorage.setItem(SKIPPED_MODULES_KEY, JSON.stringify(next))
     setDismissedPriority(id)
     if (mongoOnline) {
       try {
@@ -102,6 +105,7 @@ export default function CareerHealth() {
     moduleName: string,
   ) => {
     updateAssessment(updated)
+    recordExecution({ minutes: 25 })
     if (backendOnline && studentIdFromStorage()) {
       backendAPI.saveAssessmentModule(studentIdFromStorage()!, moduleName, updated as unknown as Record<string, unknown>).catch(() => {})
     }
@@ -109,7 +113,7 @@ export default function CareerHealth() {
       try {
         const dash = await mongoAPI.saveModule(moduleId, payload)
         const { assessment: a, platformData: pd } = dashboardToAssessment(dash)
-        if (a) updateAssessment(a)
+        if (a) syncAssessmentFromRemote(a)
         if (pd) setPlatformData(pd)
         setApiCards(dash.cards as ReturnType<typeof getAssessmentModuleCards>)
         setApiPriority(dash.priority)
@@ -124,7 +128,7 @@ export default function CareerHealth() {
   }
 
   function studentIdFromStorage() {
-    try { return JSON.parse(localStorage.getItem('cos_v5') || '{}').studentId as number | undefined } catch { return undefined }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').studentId as number | undefined } catch { return undefined }
   }
 
   const handleResume = (evidence: ResumeEvidence, score: number) => {
@@ -178,19 +182,18 @@ export default function CareerHealth() {
 
   const handleInterview = (session: MockInterviewSession) => {
     const next = applyAssessmentModule(assessment, platformData, domain, 'interview', { interviewScore: session.score })
+    updateAssessment(next)
+    recordExecution({ minutes: 30 })
     if (mongoOnline) {
       mongoAPI.saveMockInterview({ ...session } as unknown as Record<string, unknown>).then(dash => {
         const { assessment: a } = dashboardToAssessment(dash)
-        if (a) updateAssessment(a)
+        if (a) syncAssessmentFromRemote(a)
         setApiCards(dash.cards as ReturnType<typeof getAssessmentModuleCards>)
         setApiPriority(dash.priority)
         setApiConfidence(dash.confidence)
-      }).catch(() => updateAssessment(next))
-    } else {
-      updateAssessment(next)
-      if (backendOnline && studentIdFromStorage()) {
-        backendAPI.saveMockInterview(studentIdFromStorage()!, session).catch(() => {})
-      }
+      }).catch(() => {})
+    } else if (backendOnline && studentIdFromStorage()) {
+      backendAPI.saveMockInterview(studentIdFromStorage()!, session).catch(() => {})
     }
     pushNotification({
       title: 'New interview insights available',
@@ -208,11 +211,13 @@ export default function CareerHealth() {
         <p className="text-base max-w-xl" style={{ color: 'var(--text-2)' }}>
           Start with required modules to unlock your plan. Add recommended modules when ready — optional ones are there when you need them.
         </p>
-        <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full w-fit mt-2"
-          style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: mongoOnline ? 'var(--success)' : 'var(--text-3)' }}>
-          {mongoOnline ? <LivePulse label="Synced" color="var(--success)" /> : <><WifiOff size={12} /> Local mode</>}
-          {loading && <span className="ml-1 opacity-60">· updating</span>}
-        </div>
+        {mongoOnline && (
+          <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full w-fit mt-2"
+            style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', color: 'var(--success)' }}>
+            <LivePulse label="Synced" color="var(--success)" />
+            {loading && <span className="ml-1 opacity-60">· updating</span>}
+          </div>
+        )}
       </header>
 
       <ReadinessConfidencePanel confidence={confidence} />
@@ -235,7 +240,9 @@ export default function CareerHealth() {
               </span>
             </div>
             <p className="text-sm mb-5" style={{ color: 'var(--text-2)' }}>
-              Complete these first — your daily planner stays locked until resume evidence is saved.
+              {blockers.length > 0
+                ? `Complete these to unlock your daily planner: ${blockers.map(b => b.label).join(', ')}.`
+                : 'All required modules complete — your daily planner is unlocked.'}
             </p>
             <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-5" variants={staggerContainer} initial="hidden" animate="show">
               {moduleGroups.required.map((card, i) => (

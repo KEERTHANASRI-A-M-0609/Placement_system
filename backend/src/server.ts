@@ -6,6 +6,7 @@ import { connectDB, isDbConnected, startDbRetryLoop } from './config/database'
 import { config } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
+import { ensureAtlasNetworkAccess } from './services/atlasNetworkAccess'
 
 import authRoutes from './routes/auth'
 import usersRoutes from './routes/users'
@@ -22,6 +23,7 @@ import companyRoutes from './routes/companies'
 import platformRoutes from './routes/platforms'
 import { startInactiveReminderScheduler } from './jobs/inactiveReminderJob'
 import { startDigestScheduler } from './jobs/digestSchedulerJob'
+import { startDailyChallengeScheduler } from './jobs/dailyChallengeJob'
 
 const app = express()
 
@@ -31,6 +33,7 @@ function startSchedulersOnce() {
   schedulersStarted = true
   startInactiveReminderScheduler()
   startDigestScheduler()
+  startDailyChallengeScheduler()
 }
 
 app.use(helmet())
@@ -49,12 +52,14 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+  if (!isDbConnected()) {
+    await connectDB()
+  }
   const dbConnected = isDbConnected()
   res.status(200).json({
     status: dbConnected ? 'ok' : 'degraded',
     database: dbConnected ? 'connected' : 'disconnected',
-    hint: dbConnected ? undefined : 'Start backend with MongoDB — check Atlas IP whitelist (Network Access)',
     timestamp: new Date().toISOString(),
   })
 })
@@ -81,14 +86,16 @@ app.use(errorHandler)
 
 const startServer = () => {
   const server = app.listen(config.port, () => {
-    logger.info(`🚀 Vertex API running on http://localhost:${config.port}`)
+    logger.info(`🚀 PrepUp API running on http://localhost:${config.port}`)
     logger.info(`📝 Environment: ${config.env}`)
     logger.info(`🗄️  Database: connecting…`)
 
-    connectDB().then((ok) => {
-      logger.info(`🗄️  Database: ${ok ? 'connected' : 'disconnected (retrying every 20s)'}`)
-      if (ok) startSchedulersOnce()
-    })
+    ensureAtlasNetworkAccess()
+      .then(() => connectDB())
+      .then((ok) => {
+        logger.info(`Database: ${ok ? 'connected' : 'retrying every 15s'}`)
+        if (ok) startSchedulersOnce()
+      })
 
     startDbRetryLoop(() => startSchedulersOnce())
   })

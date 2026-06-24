@@ -87,6 +87,17 @@ export const sessionLoadService = {
       })),
       activityLog: user.activityLog ?? [],
       knowledgeData: (user as { knowledgeData?: Record<string, unknown> }).knowledgeData ?? null,
+      intelligenceEvents: (user as { intelligenceEvents?: unknown[] }).intelligenceEvents?.map(e => {
+        const ev = e as { phase: string; type: string; title: string; impact: string; meta?: Record<string, unknown>; at: Date }
+        return {
+          phase: ev.phase,
+          type: ev.type,
+          title: ev.title,
+          impact: ev.impact,
+          meta: ev.meta ?? {},
+          at: ev.at instanceof Date ? ev.at.toISOString() : String(ev.at),
+        }
+      }).reverse().slice(0, 40) ?? [],
       syncedAt: new Date().toISOString(),
     }
   },

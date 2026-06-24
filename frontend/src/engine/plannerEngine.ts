@@ -6,6 +6,7 @@ import type { Assessment, Application, ActivityLog } from '../types'
 import { computeGaps, generateNextActions, parseWeeklyHoursMid, resolveRoleDomain } from './intelligence'
 import { buildCompanyPrepSections, resolveCompanyProfiles } from './companyResourceEngine'
 import { localDateKey } from './activityEngine'
+import { getDailyChallenge, challengeUrl } from './dailyReminderEngine'
 import { enrichPlannerTask } from './plannerTaskGuidelines'
 import { applyTierBudget, sortTasksByTier } from './plannerTaskTiers'
 import { buildRoleGapTask, primarySkillPoolForDay, rankGapsForRole } from './plannerRoleTasks'
@@ -256,6 +257,18 @@ export function generatePersonalizedPlan(input: PlannerInput): PlannerTaskItem[]
   const themeNote = input.dayTheme ?? dayFocus.theme
 
   const items: PlannerTaskItem[] = []
+
+  const challenge = getDailyChallenge(userKey, date)
+  items.push({
+    text: `Solve LeetCode: ${challenge.title} (${challenge.difficulty})`,
+    category: 'DSA',
+    priority: 'high',
+    estimatedMins: challenge.estimatedMins,
+    resourceUrl: challengeUrl(challenge),
+    why: `Daily coding challenge · ${challenge.topic}`,
+    impact: 'High',
+    tier: 'core',
+  })
 
   const deadline = deadlineTask(input.applications ?? [])
   if (deadline) items.push({ ...deadline, tier: 'core' })

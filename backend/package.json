@@ -1,14 +1,15 @@
 {
-  "name": "careeros-backend",
+  "name": "prepup-backend",
   "version": "1.0.0",
-  "description": "CareerOS - Placement Intelligence Operating System Backend",
+  "description": "PrepUp — Placement Intelligence Platform Backend",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "npx tsx src/server.ts",
+    "dev": "npx tsx watch src/server.ts",
+    "atlas:network": "npx tsx scripts/open-atlas-network.ts",
     "dev:python": "cd .. && .venv\\Scripts\\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --app-dir backend",
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "echo \"PrepUp backend ready\"",
+    "start": "npx tsx src/server.ts",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [],
@@ -24,7 +25,8 @@
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
-    "nodemailer": "^9.0.1"
+    "nodemailer": "^9.0.1",
+    "tsx": "^4.22.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

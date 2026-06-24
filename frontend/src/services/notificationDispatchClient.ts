@@ -5,6 +5,7 @@ export type DispatchPayload = {
   message: string
   type: 'info' | 'warning' | 'success' | 'danger'
   moduleId?: string
+  channels?: { whatsapp?: boolean }
 }
 
 export async function dispatchPlatformNotification(payload: DispatchPayload): Promise<void> {

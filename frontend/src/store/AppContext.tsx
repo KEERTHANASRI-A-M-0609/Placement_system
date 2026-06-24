@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import type { UserProfile, Assessment, RecoveryState, Application, FailureEntry, DSATopic, Project, ActivityLog, WeekSnapshot, PlatformData, KnowledgeData } from '../types'
 import { mergeKnowledge, createDefaultKnowledge } from '../data/knowledgeDefaults'
 import { backendAPI } from '../services/api'
-import { mongoAPI, dashboardToAssessment, setMongoToken, getMongoToken } from '../services/mongoAPI'
-import { pingMongo, ensureMongoAuth, syncAssessmentToMongo, syncUserPhoneToMongo, syncFullSessionToMongo, loadSessionFromMongo } from '../services/mongoSync'
-import { upsertActivityLog, computeDaysInactive, localDateKey } from '../engine/activityEngine'
+import { mongoAPI, dashboardToAssessment, setMongoToken, getMongoToken, isMongoTokenValid, clearMongoTokenIfInvalid } from '../services/mongoAPI'
+import { pingMongo, getBackendHealth, ensureMongoAuth, reconnectMongoAuth, syncAssessmentToMongo, syncUserPhoneToMongo, syncFullSessionToMongo, loadSessionFromMongo, getPendingPassword } from '../services/mongoSync'
+import { upsertActivityLog, computeDaysInactive, localDateKey, isExecutionDay, sanitizeActivityLog } from '../engine/activityEngine'
 import { verifySession, saveUserSession, loadUserSession, findAccount, saveAccount } from '../services/authStore'
 import type { UserSessionData } from '../services/authStore'
 import { dispatchPlatformNotification } from '../services/notificationDispatchClient'
@@ -23,6 +23,7 @@ import {
   sendApplicationWhatsAppAlert,
   sendWhatsAppAlert,
 } from '../services/whatsappService'
+import type { IntelligenceEvent } from '../engine/intelligenceTimelineEngine'
 
 export type AppView = 'landing' | 'login' | 'onboarding' | 'assessment' | 'app' | 'notifications'
 
@@ -53,8 +54,10 @@ interface AppState {
   knowledge: KnowledgeData
   setKnowledge: (k: KnowledgeData) => void
   backendOnline: boolean
+  apiOnline: boolean
   mongoOnline: boolean
   setMongoOnline: (v: boolean) => void
+  refreshBackendHealth: () => Promise<{ api: boolean; database: boolean; hint?: string }>
   syncSessionNow: () => void
   nudgeDismissed: boolean
   notifications: AppNotification[]
@@ -64,9 +67,11 @@ interface AppState {
   setUser: (u: UserProfile) => void
   setAssessment: (a: Assessment) => void
   updateAssessment: (a: Assessment) => void
+  syncAssessmentFromRemote: (a: Assessment) => void
   setRecovery: (r: Partial<RecoveryState>) => void
   toggleTheme: () => void
   signOut: () => void
+  reconnectMongo: () => Promise<boolean>
   setApplications: (apps: Application[]) => void
   addApplication: (app: Omit<Application, 'id'>) => void
   setFailures: (f: FailureEntry[]) => void
@@ -85,6 +90,17 @@ interface AppState {
   setWhatsappPrefs: (p: Partial<WhatsAppPrefs>) => void
   sendWhatsAppDigestNow: () => Promise<{ status: string; hint?: string; reason?: string; to?: string } | null>
   sendWhatsAppWeeklyNow: () => Promise<{ status: string; hint?: string; reason?: string; to?: string } | null>
+  intelligenceEvents: IntelligenceEvent[]
+  lastSyncedAt: string | null
+  isSyncing: boolean
+  pullLiveSession: () => Promise<void>
+  recordIntelligenceEvent: (event: {
+    phase: IntelligenceEvent['phase']
+    type: string
+    title: string
+    impact: string
+    meta?: Record<string, unknown>
+  }) => void
 }
 
 const AppContext = createContext<AppState>({} as AppState)
@@ -93,7 +109,7 @@ const DEFAULT_RECOVERY: RecoveryState = {
   inactive: false, daysInactive: 0, reason: '', planActive: false, tasksDone: {}
 }
 
-const STORAGE_KEY = 'cos_v5'
+import { STORAGE_KEY, SKIPPED_MODULES_KEY, DAILY_CHECK_KEY, WEEKLY_WA_KEY, DAILY_NUDGE_KEY } from '../services/storageKeys'
 
 function load() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
@@ -126,6 +142,10 @@ function save(patch: object) {
   if (email) saveUserSession(email, sessionFromStore(next))
 }
 
+function cleanActivityLog(log: ActivityLog[] | undefined): ActivityLog[] {
+  return log?.length ? sanitizeActivityLog(log) : []
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [view,            setViewState]      = useState<AppView>('landing')
   const [user,            setUserState]      = useState<UserProfile | null>(null)
@@ -142,18 +162,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [platformData,    setPlatformState]  = useState<PlatformData | null>(null)
   const [knowledge,       setKnowledgeState] = useState<KnowledgeData>(createDefaultKnowledge())
   const [backendOnline,   setBackendOnline]  = useState(false)
+  const [apiOnline,       setApiOnline]      = useState(false)
   const [mongoOnline,     setMongoOnline]    = useState(false)
   const [nudgeDismissed,  setNudgeDismissed] = useState(false)
   const [notifications,   setNotifications]  = useState<AppNotification[]>([])
   const [whatsappPrefs,   setWhatsappPrefsState] = useState<WhatsAppPrefs>(DEFAULT_WHATSAPP_PREFS)
   const [ready,           setReady]          = useState(false)
+  const [intelligenceEvents, setIntelligenceEvents] = useState<IntelligenceEvent[]>([])
+  const [lastSyncedAt,    setLastSyncedAt]   = useState<string | null>(null)
+  const [isSyncing,       setIsSyncing]      = useState(false)
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notifSyncRef = useRef(false)
+  const pullRef = useRef(false)
+  const lastEventRef = useRef<string>('')
 
   const pushSessionToMongo = useCallback(() => {
     if (!getMongoToken()) return
     const s = load()
     if (!s.user) return
+    setIsSyncing(true)
     syncFullSessionToMongo({
       user: s.user,
       assessment: s.assessment ?? null,
@@ -162,8 +189,95 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       activityLog: s.activityLog ?? [],
       platformData: s.platformData ?? null,
       knowledge: mergeKnowledge(s.knowledge),
-    }).catch(() => {})
+    }).then(ok => {
+      if (ok) setLastSyncedAt(new Date().toISOString())
+    }).finally(() => setIsSyncing(false))
   }, [])
+
+  const recordIntelligenceEvent = useCallback((event: {
+    phase: IntelligenceEvent['phase']
+    type: string
+    title: string
+    impact: string
+    meta?: Record<string, unknown>
+  }) => {
+    const key = `${event.type}:${event.title}`
+    if (lastEventRef.current === key) return
+    lastEventRef.current = key
+    setTimeout(() => { lastEventRef.current = '' }, 30000)
+
+    const local: IntelligenceEvent = {
+      ...event,
+      phase: event.phase,
+      at: new Date().toISOString(),
+    }
+    setIntelligenceEvents(prev => [local, ...prev].slice(0, 40))
+    save({ intelligenceEvents: [local, ...(load().intelligenceEvents ?? [])].slice(0, 40) })
+
+    if (getMongoToken() && mongoOnline) {
+      mongoAPI.recordIntelligenceEvent(event).catch(() => {})
+    }
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = setTimeout(() => pushSessionToMongo(), 1500)
+  }, [mongoOnline, pushSessionToMongo])
+
+  const refreshBackendHealth = useCallback(async () => {
+    const h = await getBackendHealth()
+    setApiOnline(h.api)
+    setMongoOnline(h.api && h.database)
+    setBackendOnline(h.api)
+    return h
+  }, [])
+
+  const pullLiveSession = useCallback(async () => {
+    if (!user || !getMongoToken() || pullRef.current) return
+    pullRef.current = true
+    setIsSyncing(true)
+    try {
+      const h = await refreshBackendHealth()
+      if (!h.database) return
+      const stored = load()
+      const merged = await loadSessionFromMongo({
+        user: stored.user ?? user,
+        assessment: stored.assessment ?? null,
+        applications: stored.applications ?? [],
+        failures: stored.failures ?? [],
+        activityLog: stored.activityLog ?? [],
+        platformData: stored.platformData ?? null,
+        knowledge: mergeKnowledge(stored.knowledge),
+      })
+      if (merged.assessment) setAssessState(merged.assessment)
+      if (merged.platformData) setPlatformState(merged.platformData)
+      if (merged.applications?.length) setAppsState(merged.applications)
+      if (merged.failures?.length) setFailState(merged.failures)
+      if (merged.activityLog?.length) {
+        const cleaned = cleanActivityLog(merged.activityLog)
+        setActivityState(cleaned)
+        merged.activityLog = cleaned
+      }
+      if (merged.knowledge) setKnowledgeState(mergeKnowledge(merged.knowledge))
+      save({
+        assessment: merged.assessment,
+        platformData: merged.platformData,
+        applications: merged.applications,
+        failures: merged.failures,
+        activityLog: merged.activityLog,
+        knowledge: merged.knowledge,
+      })
+      const remote = await mongoAPI.getSession()
+      if (remote.intelligenceEvents?.length) {
+        setIntelligenceEvents(remote.intelligenceEvents as IntelligenceEvent[])
+        save({ intelligenceEvents: remote.intelligenceEvents })
+      }
+      setLastSyncedAt(remote.syncedAt ?? new Date().toISOString())
+      setMongoOnline(true)
+    } catch {
+      /* keep local */
+    } finally {
+      setIsSyncing(false)
+      pullRef.current = false
+    }
+  }, [user, refreshBackendHealth])
 
   const scheduleMongoSync = useCallback(() => {
     if (!getMongoToken()) return
@@ -180,7 +294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [scheduleMongoSync])
 
   const loadSkippedModules = (): Record<string, string> => {
-    try { return JSON.parse(localStorage.getItem('cos_skipped_modules') || '{}') } catch { return {} }
+    try { return JSON.parse(localStorage.getItem(SKIPPED_MODULES_KEY) || '{}') } catch { return {} }
   }
 
   const syncNotifications = useCallback(async () => {
@@ -219,7 +333,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (session.applications) setAppsState(session.applications)
     if (session.failures) setFailState(session.failures)
     if (session.projects) setProjState(session.projects)
-    if (session.activityLog) setActivityState(session.activityLog)
+    if (session.activityLog) {
+      const cleaned = cleanActivityLog(session.activityLog)
+      setActivityState(cleaned)
+      save({ activityLog: cleaned })
+    }
     if (session.weeklySnapshots) setSnapshotsState(session.weeklySnapshots)
     if (session.dsaTopics) setDsaState(session.dsaTopics)
     if (session.recovery) setRecovState(session.recovery)
@@ -257,10 +375,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setFailState(s.failures ?? [])
         setDsaState(s.dsaTopics ?? [])
         setProjState(s.projects ?? [])
-        if (s.activityLog) setActivityState(s.activityLog)
+        if (s.activityLog) {
+          const cleaned = cleanActivityLog(s.activityLog)
+          setActivityState(cleaned)
+          save({ activityLog: cleaned })
+        }
         if (s.weeklySnapshots) setSnapshotsState(s.weeklySnapshots)
         if (s.platformData) setPlatformState(s.platformData)
         if (s.knowledge) setKnowledgeState(mergeKnowledge(s.knowledge))
+        if (s.intelligenceEvents) setIntelligenceEvents(s.intelligenceEvents)
         setNudgeDismissed(s.nudgeDismissed ?? false)
         setNotifications(s.notifications ?? [])
         if (s.whatsappPrefs) setWhatsappPrefsState({ ...DEFAULT_WHATSAPP_PREFS, ...s.whatsappPrefs })
@@ -279,10 +402,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedView === 'notifications') save({ view: 'app' })
     }
     setReady(true)
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/health`).then(r => r.ok && setBackendOnline(true)).catch(() => {})
-    pingMongo().then(async ok => {
-      setMongoOnline(ok)
-      if (!ok || !getMongoToken()) return
+    refreshBackendHealth().then(async h => {
+      if (!h.database || !getMongoToken()) return
       const stored = load()
       if (!stored.user) return
       const merged = await loadSessionFromMongo({
@@ -298,7 +419,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (merged.platformData) setPlatformState(merged.platformData)
       if (merged.applications?.length) setAppsState(merged.applications)
       if (merged.failures?.length) setFailState(merged.failures)
-      if (merged.activityLog?.length) setActivityState(merged.activityLog)
+      if (merged.activityLog?.length) {
+        const cleaned = cleanActivityLog(merged.activityLog)
+        setActivityState(cleaned)
+        merged.activityLog = cleaned
+      }
       if (merged.knowledge) setKnowledgeState(mergeKnowledge(merged.knowledge))
       save({
         assessment: merged.assessment,
@@ -311,6 +436,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  useEffect(() => {
+    if (!user || !ready) return
+    refreshBackendHealth()
+    const t = setInterval(refreshBackendHealth, 30000)
+    return () => clearInterval(t)
+  }, [user, ready, refreshBackendHealth])
+
+  // Silently connect to MongoDB when the cluster becomes reachable
+  useEffect(() => {
+    if (!user || !ready) return
+
+    const tryMongo = async () => {
+      clearMongoTokenIfInvalid()
+      const h = await refreshBackendHealth()
+      if (!h.api || !h.database) return
+      if (getMongoToken() && !isMongoTokenValid()) {
+        setMongoToken(null)
+        setMongoOnline(false)
+      }
+      if (getMongoToken()) {
+        setMongoOnline(true)
+        pushSessionToMongo()
+        return
+      }
+      if (!getPendingPassword()) return
+      const ok = await ensureMongoAuth(user)
+      if (!ok) return
+      setMongoOnline(true)
+      pushSessionToMongo()
+      try {
+        const stored = load()
+        const merged = await loadSessionFromMongo({
+          user: stored.user!,
+          assessment: stored.assessment ?? null,
+          applications: stored.applications ?? [],
+          failures: stored.failures ?? [],
+          activityLog: stored.activityLog ?? [],
+          platformData: stored.platformData ?? null,
+          knowledge: mergeKnowledge(stored.knowledge),
+        })
+        if (merged.assessment) setAssessState(merged.assessment)
+        if (merged.platformData) setPlatformState(merged.platformData)
+        if (merged.applications?.length) setAppsState(merged.applications)
+        if (merged.activityLog?.length) {
+        const cleaned = cleanActivityLog(merged.activityLog)
+        setActivityState(cleaned)
+        merged.activityLog = cleaned
+      }
+        save({
+          assessment: merged.assessment,
+          platformData: merged.platformData,
+          applications: merged.applications,
+          activityLog: merged.activityLog,
+        })
+      } catch { /* keep local */ }
+    }
+
+    tryMongo()
+    const t = setInterval(tryMongo, 10000)
+    return () => clearInterval(t)
+  }, [user, ready, refreshBackendHealth, pushSessionToMongo])
+
+  // Pull live session from prepup cluster every 20s
+  useEffect(() => {
+    if (!user || !ready || !mongoOnline || !getMongoToken()) return
+    pullLiveSession()
+    const t = setInterval(pullLiveSession, 20000)
+    return () => clearInterval(t)
+  }, [user, ready, mongoOnline, pullLiveSession])
+
   // Sync notifications when user data changes
   useEffect(() => {
     if (!user || !ready) return
@@ -322,7 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user || !ready) return
     const daysInactive = computeDaysInactive(activityLog)
-    const hasHistory = activityLog.some(l => l.tasksCompleted > 0 || l.hoursSpent > 0 || (l.executions ?? 0) > 0)
+    const hasHistory = activityLog.some(isExecutionDay)
 
     setRecovState(prev => {
       const next: RecoveryState = hasHistory && daysInactive >= 3
@@ -345,13 +540,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })
   }, [activityLog, user, ready])
 
+  // Daily challenge when Mongo auth is available (separate from daily check)
+  useEffect(() => {
+    if (!user || !ready || !mongoOnline || !getMongoToken()) return
+    const today = new Date().toISOString().split('T')[0]
+    const lastNudge = localStorage.getItem(DAILY_NUDGE_KEY)
+    if (lastNudge === today) return
+
+    mongoAPI.triggerDailyChallenge().then(res => {
+      if (res.skipped || res.sent) localStorage.setItem(DAILY_NUDGE_KEY, today)
+      if (!res.sent || !res.title) return
+      const detail = res.whatsappDelivered
+        ? 'WhatsApp + in-app notification sent.'
+        : (res.hint ?? res.whatsappHint ?? 'Saved in-app.')
+      pushNotificationInternal({
+        title: res.title,
+        message: detail,
+        type: res.deliveredLive ? 'success' : 'info',
+        moduleId: 'coding',
+      })
+    }).catch(err => {
+      pushNotificationInternal({
+        title: 'Daily challenge unavailable',
+        message: (err as Error).message.includes('Route not found')
+          ? 'Backend needs a restart — stop and run: cd backend && npm run dev'
+          : (err as Error).message,
+        type: 'warning',
+      })
+    })
+  }, [user, ready, mongoOnline])
+
   // Daily digest — once per day when app opens
   useEffect(() => {
     if (!user) return
-    const lastChecked = localStorage.getItem('cos_daily_check')
+    const lastChecked = localStorage.getItem(DAILY_CHECK_KEY)
     const today = new Date().toISOString().split('T')[0]
     if (lastChecked === today) return
-    localStorage.setItem('cos_daily_check', today)
+    localStorage.setItem(DAILY_CHECK_KEY, today)
     syncNotifications()
 
     const prefs = { ...DEFAULT_WHATSAPP_PREFS, ...load().whatsappPrefs }
@@ -361,9 +586,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const isSunday = new Date().getDay() === 0
     const sundayKey = new Date().toISOString().split('T')[0]
-    const lastWeekly = localStorage.getItem('cos_weekly_wa')
+    const lastWeekly = localStorage.getItem(WEEKLY_WA_KEY)
     if (isSunday && prefs.enabled && prefs.weeklyReport && user.phone && lastWeekly !== sundayKey) {
-      localStorage.setItem('cos_weekly_wa', sundayKey)
+      localStorage.setItem(WEEKLY_WA_KEY, sundayKey)
       sendWhatsAppWeeklyReport(user, assessment, applications, activityLog, weeklySnapshots)
     }
   }, [user])
@@ -386,14 +611,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activityLog,
         phone: user.phone,
         notificationPrefs: {
-          emailInactive: whatsappPrefs.inactiveReminders !== false,
           whatsappInactive: whatsappPrefs.inactiveReminders !== false,
           whatsappEnabled: whatsappPrefs.enabled,
           whatsappUrgent: whatsappPrefs.urgentAlerts,
           whatsappDailyDigest: whatsappPrefs.dailyDigest,
           whatsappWeeklyReport: whatsappPrefs.weeklyReport,
           whatsappApplicationAlerts: whatsappPrefs.applicationAlerts,
-          emailDigest: whatsappPrefs.dailyDigest || whatsappPrefs.weeklyReport,
         },
       }).catch(() => {})
     }, 2500)
@@ -402,7 +625,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    document.body.style.background = theme === 'dark' ? '#0F172A' : '#FFFFFF'
   }, [theme])
 
   const setView = (v: AppView) => {
@@ -440,10 +662,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {})
 
     ensureMongoAuth(withPhone).then(async ok => {
-      if (!ok) {
-        pingMongo().then(setMongoOnline)
-        return
-      }
+      const h = await refreshBackendHealth()
+      if (!ok || !h.database) return
+      setApiOnline(true)
       setMongoOnline(true)
       if (withPhone.phone) syncUserPhoneToMongo(withPhone.phone).catch(() => {})
       try {
@@ -465,7 +686,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (merged.platformData) { setPlatformState(merged.platformData); save({ platformData: merged.platformData }) }
         if (merged.applications?.length) { setAppsState(merged.applications); save({ applications: merged.applications }) }
         if (merged.failures?.length) { setFailState(merged.failures); save({ failures: merged.failures }) }
-        if (merged.activityLog?.length) { setActivityState(merged.activityLog); save({ activityLog: merged.activityLog }) }
+        if (merged.activityLog?.length) {
+          const cleaned = cleanActivityLog(merged.activityLog)
+          setActivityState(cleaned)
+          save({ activityLog: cleaned })
+        }
         if (merged.knowledge) { setKnowledgeState(mergeKnowledge(merged.knowledge)); save({ knowledge: merged.knowledge }) }
       } catch {
         try {
@@ -492,6 +717,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       type: 'success',
     }, true)
     recordExecutionInternal({ executionsDelta: 1, minutes: 45 })
+    recordIntelligenceEvent({
+      phase: 'evidence',
+      type: 'assessment_complete',
+      title: 'Assessment profile built',
+      impact: 'Readiness score and gap analysis are now active on your dashboard.',
+    })
   }
 
   const updateAssessment = (a: Assessment) => {
@@ -509,8 +740,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       aptitudeEvidence: a.aptitudeEvidence, platformData: pd,
     }).catch(() => {})
     scheduleMongoSync()
-    recordExecutionInternal({ executionsDelta: 1, minutes: 30 })
+    recordIntelligenceEvent({
+      phase: 'evidence',
+      type: 'assessment_updated',
+      title: 'Evidence graph updated',
+      impact: `Readiness recalculated — stored in prepup for real-time intelligence.`,
+      meta: { dsa: a.dsa, resume: a.resume, communication: a.communication },
+    })
   }
+
+  const syncAssessmentFromRemote = useCallback((a: Assessment) => {
+    setAssessState(a)
+    save({ assessment: a })
+  }, [])
 
   const setRecovery = (r: Partial<RecoveryState>) => {
     setRecovState(prev => { const next = { ...prev, ...r }; save({ recovery: next }); return next })
@@ -547,6 +789,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     recordExecutionInternal({ executionsDelta: 1 })
     scheduleMongoSync()
+    recordIntelligenceEvent({
+      phase: 'execution',
+      type: 'application_added',
+      title: `${newApp.company} added to pipeline`,
+      impact: 'Placement probability and deadline tracking updated in cloud.',
+    })
   }
   const setFailures = (f: FailureEntry[]) => {
     const added = f.length > failures.length
@@ -557,7 +805,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
   const setDsaTopics = (t: DSATopic[]) => { setDsaState(t); save({ dsaTopics: t }) }
   const setProjects = (p: Project[]) => { setProjState(p); save({ projects: p }) }
-  const setPlatformData = (d: PlatformData) => { setPlatformState(d); save({ platformData: d }) }
+  const setPlatformData = (d: PlatformData) => {
+    setPlatformState(d)
+    save({ platformData: d })
+    scheduleMongoSync()
+    if (d.leetcode || d.github) {
+      recordIntelligenceEvent({
+        phase: 'evidence',
+        type: 'platform_connected',
+        title: d.leetcode ? 'LeetCode evidence connected' : 'GitHub evidence connected',
+        impact: 'Coding/project scores now reflect live platform data.',
+      })
+    }
+  }
   const dismissNudge = () => { setNudgeDismissed(true); save({ nudgeDismissed: true }) }
 
   // Reset assessment nudge on fresh sign-in so dashboard popup appears
@@ -589,8 +849,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = existing
         ? prev.map(l => (l.date === date ? nextEntry : l))
         : [...prev, nextEntry].sort((a, b) => a.date.localeCompare(b.date))
-      save({ activityLog: next })
-      return next
+      const cleaned = sanitizeActivityLog(next)
+      save({ activityLog: cleaned })
+      return cleaned
     })
     scheduleMongoSync()
   }
@@ -621,16 +882,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = existing
         ? prev.map(l => (l.date === date ? nextEntry : l))
         : [...prev, nextEntry].sort((a, b) => a.date.localeCompare(b.date))
-      save({ activityLog: next })
-      return next
+      const cleaned = sanitizeActivityLog(next)
+      save({ activityLog: cleaned })
+      return cleaned
     })
     scheduleMongoSync()
+    recordIntelligenceEvent({
+      phase: 'execution',
+      type: 'planner_task_verified',
+      title: 'Planner task verified',
+      impact: 'Execution streak and consistency score updated in real time.',
+    })
   }
 
   const syncTodayActivity = (tasksCompleted: number, hoursSpent: number) => {
     const date = localDateKey()
     setActivityState(prev => {
-      const next = upsertActivityLog(prev, { date, tasksCompleted, hoursSpent })
+      const next = sanitizeActivityLog(upsertActivityLog(prev, { date, tasksCompleted, hoursSpent }))
       save({ activityLog: next })
       return next
     })
@@ -679,11 +947,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (mongoOnline && getMongoToken()) {
+      const sendWa = prefs.enabled && (
+        prefs.urgentAlerts && (n.type === 'danger' || n.type === 'warning' || n.type === 'success')
+        || n.type === 'info'
+      )
       dispatchPlatformNotification({
         title: n.title,
         message: n.message,
         type: n.type,
         moduleId: n.moduleId,
+        channels: {
+          whatsapp: sendWa,
+        },
       })
     } else if (u?.phone && prefs.enabled && prefs.urgentAlerts && (n.type === 'danger' || n.type === 'warning' || n.type === 'success')) {
       sendWhatsAppAlert(u.phone, n.title, n.message)
@@ -758,20 +1033,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWhatsappPrefsState(DEFAULT_WHATSAPP_PREFS)
   }
 
+  const reconnectMongo = useCallback(async () => {
+    if (!user?.email) return false
+    const ok = await reconnectMongoAuth(user)
+    if (ok) {
+      setMongoOnline(true)
+      pushSessionToMongo()
+    } else {
+      setMongoOnline(false)
+    }
+    return ok
+  }, [user, pushSessionToMongo])
+
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <p className="text-sm" style={{ color: 'var(--text-2)' }}>Loading Vertex…</p>
+        <p className="text-sm" style={{ color: 'var(--text-2)' }}>Loading PrepUp…</p>
       </div>
     )
   }
 
   return (
     <AppContext.Provider value={{
-      view, user, studentId, assessment, recovery, theme, backendOnline, mongoOnline, setMongoOnline: setMongoOnline, syncSessionNow: pushSessionToMongo, nudgeDismissed,
+      view, user, studentId, assessment, recovery, theme, backendOnline, apiOnline, mongoOnline, setMongoOnline: setMongoOnline, refreshBackendHealth, syncSessionNow: pushSessionToMongo, nudgeDismissed,
       applications, failures, dsaTopics, projects, activityLog, weeklySnapshots, platformData, knowledge,
       notifications, whatsappPrefs,
-      setView, setUser, setAssessment, updateAssessment, setRecovery, toggleTheme, signOut, dismissNudge, resetAssessmentNudge,
+      intelligenceEvents, lastSyncedAt, isSyncing, pullLiveSession, recordIntelligenceEvent,
+      setView, setUser, setAssessment, updateAssessment, syncAssessmentFromRemote, setRecovery, toggleTheme, signOut, reconnectMongo, dismissNudge, resetAssessmentNudge,
       setApplications, addApplication, setFailures, setDsaTopics, setProjects, logActivity, recordExecution, recordVerifiedPlannerTask, syncTodayActivity, snapshotWeek,
       setPlatformData, setKnowledge, pushNotification, markAllRead, syncNotifications, setWhatsappPrefs, sendWhatsAppDigestNow, sendWhatsAppWeeklyNow,
     }}>

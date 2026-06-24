@@ -191,16 +191,19 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
   }
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start gap-2 p-3 rounded-lg text-sm"
-        style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-        <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
-        <div style={{ color: '#1E40AF' }}>
-          <strong>Proctored skill check.</strong> Camera stays on while you speak. Tab switches or camera violations invalidate the attempt — retake required, no score penalty.
+      {proctorRequired && (
+        <div className="flex items-start gap-2 p-3 rounded-lg text-sm"
+          style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
+          <div style={{ color: '#1E40AF' }}>
+            <strong>Proctored skill check.</strong> Camera stays on while you speak. Tab switches invalidate the attempt — retake required.
+          </div>
         </div>
-      </div>
+      )}
 
       {phase === 'intro' && (
         <div className="space-y-4">
@@ -209,7 +212,8 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
             <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>"{PROMPTS[promptIdx]}"</p>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-2)' }}>
-            Speak for 1–2 minutes. You need at least 25 words for a valid score. Camera monitoring is active during recording.
+            Speak for 1–2 minutes (aim for 60+ seconds). You need at least 25 words for a valid score.
+            {proctorRequired ? ' Camera monitoring is active during recording.' : ' Practice mode — speak naturally in a quiet room.'}
           </p>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2">
@@ -249,7 +253,9 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
 
             <div>
               <p className="font-mono text-3xl font-bold" style={{ color: 'var(--text)' }}>{fmt(elapsed)}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>Speak naturally — live transcript below</p>
+              <p className="text-sm mt-1" style={{ color: wordCount >= 25 ? 'var(--success)' : 'var(--text-3)' }}>
+                {wordCount} words {wordCount < 25 ? `(need ${25 - wordCount} more for a valid score)` : '— ready to analyze'}
+              </p>
             </div>
           </div>
 
@@ -269,8 +275,13 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
             </div>
           )}
 
-          <button onClick={stopRecording} className="btn-primary w-full justify-center py-4 text-base" style={{ background: 'var(--danger)' }}>
-            <MicOff size={18} /> Stop & Analyze
+          <button
+            onClick={stopRecording}
+            disabled={wordCount < 10}
+            className="btn-primary w-full justify-center py-4 text-base disabled:opacity-50"
+            style={{ background: wordCount >= 25 ? 'var(--danger)' : 'var(--warning)' }}
+          >
+            <MicOff size={18} /> {wordCount >= 25 ? 'Stop & Analyze' : 'Keep speaking…'}
           </button>
         </div>
       )}
@@ -298,7 +309,7 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
             </p>
             <p className="text-sm" style={{ color: 'var(--text-2)' }}>Communication Score</p>
             {result.wordCount < 25 && (
-              <p className="text-xs mt-2 text-amber-600">Too few words detected — speak more clearly and retry for an accurate score.</p>
+              <p className="text-xs mt-2 text-amber-600">Too few words — speak for at least 60 seconds and retry for an accurate score.</p>
             )}
           </div>
 
@@ -340,9 +351,12 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
           )}
 
           <div className="flex gap-2">
-            <button onClick={() => onComplete(result)}
-              className="btn-primary flex-1 justify-center py-3 text-sm flex items-center gap-2">
-              <CheckCircle2 size={14} /> Save Score
+            <button
+              onClick={() => onComplete(result)}
+              disabled={result.wordCount < 25}
+              className="btn-primary flex-1 justify-center py-3 text-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              <CheckCircle2 size={14} /> {result.wordCount >= 25 ? 'Save Score & Continue' : 'Speak longer to save'}
             </button>
             <button onClick={retakeAfterCheat}
               className="btn-secondary px-4 py-3 text-sm">Retry</button>

@@ -1,15 +1,16 @@
 import type { UserProfile, Assessment, Application, FailureEntry, ActivityLog, PlatformData, KnowledgeData } from '../types'
 import { mergeKnowledge } from '../data/knowledgeDefaults'
+import { sanitizeActivityLog } from '../engine/activityEngine'
 
-import { mongoAPI, setMongoToken, getMongoToken, profileToMongoRegister } from './mongoAPI'
+import { mongoAPI, setMongoToken, getMongoToken, profileToMongoRegister, isMongoTokenValid, clearMongoTokenIfInvalid } from './mongoAPI'
 
-const PENDING_PW_KEY = 'cos_mongo_pending_pw'
+import { MONGO_PENDING_PW_KEY } from './storageKeys'
 
 
 
 export function storePendingPassword(password: string) {
 
-  sessionStorage.setItem(PENDING_PW_KEY, password)
+  sessionStorage.setItem(MONGO_PENDING_PW_KEY, password)
 
 }
 
@@ -17,7 +18,7 @@ export function storePendingPassword(password: string) {
 
 export function getPendingPassword(): string | null {
 
-  try { return sessionStorage.getItem(PENDING_PW_KEY) } catch { return null }
+  try { return sessionStorage.getItem(MONGO_PENDING_PW_KEY) } catch { return null }
 
 }
 
@@ -25,19 +26,34 @@ export function getPendingPassword(): string | null {
 
 export function clearPendingPassword() {
 
-  sessionStorage.removeItem(PENDING_PW_KEY)
+  sessionStorage.removeItem(MONGO_PENDING_PW_KEY)
 
 }
 
 
 
 export async function getBackendHealth(): Promise<{ api: boolean; database: boolean; hint?: string }> {
-  try {
-    const h = await mongoAPI.ping()
-    return { api: true, database: h.database === 'connected', hint: h.hint }
-  } catch {
-    return { api: false, database: false }
+  const envBase = import.meta.env.VITE_MONGO_API_URL || 'http://localhost:5000'
+  const bases = [envBase, 'http://127.0.0.1:5000'].filter((v, i, a) => a.indexOf(v) === i)
+
+  for (const base of bases) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 12000)
+    try {
+      const res = await fetch(`${base}/health`, { signal: controller.signal, cache: 'no-store' })
+      clearTimeout(timer)
+      if (!res.ok) continue
+      const h = await res.json() as { database?: string; hint?: string }
+      return { api: true, database: h.database === 'connected', hint: h.hint }
+    } catch {
+      clearTimeout(timer)
+    }
   }
+  return { api: false, database: false, hint: 'Start backend: cd backend && npm run dev' }
+}
+
+export async function refreshBackendHealth(): Promise<{ api: boolean; database: boolean; hint?: string }> {
+  return getBackendHealth()
 }
 
 export async function pingMongo(): Promise<boolean> {
@@ -103,7 +119,9 @@ export async function registerMongo(user: UserProfile, password: string): Promis
 
 export async function ensureMongoAuth(user: UserProfile, password?: string): Promise<boolean> {
 
-  if (getMongoToken()) return true
+  if (getMongoToken() && isMongoTokenValid()) return true
+
+  if (getMongoToken()) setMongoToken(null)
 
   const pw = password || getPendingPassword()
 
@@ -118,6 +136,20 @@ export async function ensureMongoAuth(user: UserProfile, password?: string): Pro
 
 
   return registerMongo(user, pw)
+
+}
+
+
+
+/** Try silent re-login with session password, or clear stale token. */
+
+export async function reconnectMongoAuth(user: UserProfile): Promise<boolean> {
+
+  clearMongoTokenIfInvalid()
+
+  if (isMongoTokenValid()) return true
+
+  return ensureMongoAuth(user)
 
 }
 
@@ -281,11 +313,20 @@ function mergeActivityLogs(local: ActivityLog[], remote: ActivityLog[]): Activit
   const map = new Map<string, ActivityLog>()
   for (const entry of [...remote, ...local]) {
     const prev = map.get(entry.date)
-    if (!prev || entry.tasksCompleted > prev.tasksCompleted || entry.hoursSpent > prev.hoursSpent) {
+    if (!prev) {
       map.set(entry.date, entry)
+      continue
     }
+    map.set(entry.date, {
+      ...prev,
+      ...entry,
+      tasksCompleted: Math.max(prev.tasksCompleted, entry.tasksCompleted),
+      hoursSpent: Math.max(prev.hoursSpent, entry.hoursSpent),
+      verifiedTasks: Math.max(prev.verifiedTasks ?? 0, entry.verifiedTasks ?? 0),
+      executions: Math.max(prev.executions ?? 0, entry.executions ?? 0),
+    })
   }
-  return [...map.values()].sort((a, b) => b.date.localeCompare(a.date))
+  return sanitizeActivityLog([...map.values()].sort((a, b) => b.date.localeCompare(a.date)))
 }
 
 export function mergeRemoteSession(local: FullSessionPayload, remote: Awaited<ReturnType<typeof mongoAPI.getSession>>): FullSessionPayload {

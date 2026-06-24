@@ -1,7 +1,9 @@
 import type { UserProfile, Assessment, RecoveryState, Application, FailureEntry, DSATopic, Project, ActivityLog, WeekSnapshot, PlatformData, KnowledgeData } from '../types'
 import type { WhatsAppPrefs } from '../services/whatsappService'
 
-export const ACCOUNTS_KEY = 'cos_accounts'
+import { ACCOUNTS_KEY } from './storageKeys'
+
+export { ACCOUNTS_KEY }
 
 export type UserSessionData = {
   assessment?: Assessment | null

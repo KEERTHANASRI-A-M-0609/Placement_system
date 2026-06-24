@@ -12,6 +12,7 @@ import {
 } from '../engine/intelligence'
 import { computeReadinessConfidence, getTopPriority } from '../engine/assessmentEngine'
 import { CAREER_MODULES } from '../data/careerModules'
+import { SKIPPED_MODULES_KEY } from '../services/storageKeys'
 
 const TOOL_ICONS: Record<string, typeof CalendarDays> = {
   'command-center': Target,
@@ -25,7 +26,7 @@ const TOOL_ICONS: Record<string, typeof CalendarDays> = {
 }
 
 function loadSkipped() {
-  try { return JSON.parse(localStorage.getItem('cos_skipped_modules') || '{}') } catch { return {} }
+  try { return JSON.parse(localStorage.getItem(SKIPPED_MODULES_KEY) || '{}') } catch { return {} }
 }
 
 export default function CareerWorkspace() {

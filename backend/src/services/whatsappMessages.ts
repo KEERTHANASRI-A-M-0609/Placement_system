@@ -14,10 +14,10 @@ function pickResources(gaps: { key?: string; label?: string }[], limit = 2) {
     projects: { title: 'GitHub — ship a commit today', url: 'https://github.com/' },
     resume: { title: 'Jobscan ATS check', url: 'https://www.jobscan.co/' },
     aptitude: { title: 'IndiaBix Aptitude', url: 'https://www.indiabix.com/aptitude/' },
-    communication: { title: 'Vertex Communication module', url: 'http://localhost:5173/health?module=communication' },
+    communication: { title: 'PrepUp Communication module', url: 'http://localhost:5173/health?module=communication' },
     interview: { title: 'Mock Interview module', url: 'http://localhost:5173/health?module=interview' },
   }
-  return gaps.slice(0, limit).map(g => map[g.key ?? ''] ?? { title: 'Vertex Daily Planner', url: 'http://localhost:5173/planner' })
+  return gaps.slice(0, limit).map(g => map[g.key ?? ''] ?? { title: 'PrepUp Daily Planner', url: 'http://localhost:5173/planner' })
 }
 
 export function buildStatusMessage(profile: Profile): string {
@@ -29,11 +29,11 @@ export function buildStatusMessage(profile: Profile): string {
   const streak = profile.streak
   const overall = profile.overall_readiness
 
-  const lines = [`📊 *Vertex Status — ${name}*`, `Role track: ${domain}`]
+  const lines = [`📊 *PrepUp Status — ${name}*`, `Role track: ${domain}`]
 
   if (!assessed) {
     lines.push('\n⚠️ Assessment not complete yet.')
-    lines.push('Open Vertex → Career Health to unlock your readiness score.')
+    lines.push('Open PrepUp → Career Health to unlock your readiness score.')
     return lines.join('\n')
   }
 
@@ -65,6 +65,13 @@ export function buildDailyDigest(profile: Profile): string {
 
   const lines = [`☀️ *Good morning, ${first}!*`, '', status]
 
+  const challengeLine = profile.daily_challenge as { title?: string; url?: string; difficulty?: string } | undefined
+  if (challengeLine?.title && challengeLine?.url) {
+    lines.splice(2, 0, '', `🎯 *Today's LeetCode:* ${challengeLine.title} (${challengeLine.difficulty ?? 'Medium'})`, challengeLine.url)
+  } else {
+    lines.splice(2, 0, '', '🎯 *Today:* Open Daily Planner for your LeetCode challenge.')
+  }
+
   if (resources.length) {
     lines.push('\n💡 *Today\'s resource picks:*')
     resources.forEach((r, i) => lines.push(`${i + 1}. ${r.title} — ${r.url}`))
@@ -85,7 +92,7 @@ export function buildDailyDigest(profile: Profile): string {
     lines.push(`\n⚠️ Inactive ${inactive} days — open Daily Planner to protect your streak.`)
   }
 
-  lines.push('\nOpen Vertex → Daily Planner for today\'s focus tasks.')
+  lines.push('\nOpen PrepUp → Daily Planner for today\'s focus tasks.')
   return lines.join('\n').slice(0, 1600)
 }
 
@@ -163,6 +170,6 @@ export function buildApplicationAlert(app: Profile): string {
     }
   }
 
-  lines.push('\nOpen Vertex → Application Pipeline')
+  lines.push('\nOpen PrepUp → Application Pipeline')
   return lines.join('\n')
 }

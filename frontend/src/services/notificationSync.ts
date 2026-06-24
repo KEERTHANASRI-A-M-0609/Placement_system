@@ -2,6 +2,7 @@ import type { AppNotification } from '../store/AppContext'
 import type { Assessment, Application, ActivityLog, PlatformData, UserProfile } from '../types'
 import { isAssessmentComplete } from '../engine/intelligence'
 import { buildAssessmentNotifications } from '../engine/assessmentEngine'
+import { buildDailyReminderNotifications } from '../engine/dailyReminderEngine'
 import { mongoAPI, getMongoToken } from './mongoAPI'
 
 const NOTIF_TYPES = new Set(['info', 'warning', 'success', 'danger'])
@@ -40,6 +41,11 @@ export function buildLocalNotifications(
 ): Omit<AppNotification, 'id' | 'createdAt' | 'read'>[] {
   const msgs: Omit<AppNotification, 'id' | 'createdAt' | 'read'>[] = []
 
+  const userKey = user?.email ?? user?.phone ?? 'user'
+  buildDailyReminderNotifications(userKey, activityLog, applications).forEach(m => {
+    msgs.push({ title: m.title, message: m.message, type: m.type, moduleId: m.moduleId })
+  })
+
   buildAssessmentNotifications(user, assessment, platformData, skippedModules).forEach(m => {
     msgs.push({ title: m.title, message: m.message, type: m.type, moduleId: m.moduleId })
   })
@@ -64,7 +70,7 @@ export function buildLocalNotifications(
     if (days >= 3) {
       msgs.push({
         title: 'Momentum at risk',
-        message: `No verified execution for ${days} days. Open Daily Planner — email/WhatsApp reminders are sent at 3, 7, and 14 days.`,
+        message: `No verified execution for ${days} days. Open Daily Planner — WhatsApp reminders are sent at 3, 7, and 14 days.`,
         type: 'warning',
       })
     } else if (days >= 2) {

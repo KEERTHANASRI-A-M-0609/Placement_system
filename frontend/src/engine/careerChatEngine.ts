@@ -61,7 +61,7 @@ const QUICK_STARTERS_LOGGED_IN = [
 const QUICK_STARTERS_GUEST = [
   'What are the features?',
   'How do I get started?',
-  'What is Vertex?',
+  'What is PrepUp?',
   'How does onboarding work?',
 ]
 
@@ -306,13 +306,13 @@ function buildHelp(ctx: ChatContext): ChatMessage {
         '"What companies fit my domain?" — campus compatibility',
       ]
     : [
-        '"What is Vertex?" — platform overview',
+        '"What is PrepUp?" — platform overview',
         '"How do I get started?" — sign up steps',
         '"What modules are available?" — live tools list',
         '"How does onboarding work?" — domain & companies',
       ]
   return assistant(
-    `I'm your **Vertex assistant** — ask in plain English about features, your plan, gaps, readiness, or applications.\n\n**Examples:**\n${caps.map(c => `• ${c}`).join('\n')}`,
+    `I'm your **PrepUp assistant** — ask in plain English about features, your plan, gaps, readiness, or applications.\n\n**Examples:**\n${caps.map(c => `• ${c}`).join('\n')}`,
     ctx.loggedIn
       ? [
           { type: 'prompt', label: "Today's plan", message: 'What should I do today?' },
@@ -329,9 +329,9 @@ function buildHelp(ctx: ChatContext): ChatMessage {
 export function buildWelcomeMessage(ctx: ChatContext): ChatMessage {
   if (!ctx.loggedIn) {
     return assistant(
-      'Hi! I\'m the **Vertex assistant**. Ask me about the platform, modules, or how to get started — each question gets a specific answer.',
+      'Hi! I\'m the **PrepUp assistant**. Ask me about the platform, modules, or how to get started — each question gets a specific answer.',
       [
-        { type: 'prompt', label: 'What is Vertex?', message: 'What is Vertex?' },
+        { type: 'prompt', label: 'What is PrepUp?', message: 'What is PrepUp?' },
         { type: 'prompt', label: 'Get started', message: 'How do I get started?' },
       ],
     )
@@ -355,7 +355,7 @@ export function buildWelcomeMessage(ctx: ChatContext): ChatMessage {
 
 function buildGuestPlatformOverview(): ChatMessage {
   return assistant(
-    '**Vertex** is a placement intelligence platform:\n\n' +
+    '**PrepUp** is a placement intelligence platform:\n\n' +
     '• **Career Health** — resume, LeetCode, GitHub, aptitude, communication, mock interview\n' +
     '• **Daily Planner** — tasks matched to your domain and target companies\n' +
     '• **Application Pipeline** — track wishlist → offer\n' +
@@ -383,8 +383,8 @@ function buildFeaturesOverview(ctx: ChatContext): ChatMessage {
     .join('\n\n')
 
   const intro = ctx.loggedIn
-    ? 'Here’s what Vertex offers — personalized to your profile when you’re signed in:'
-    : 'Vertex is a placement intelligence platform. Here’s what you can use today:'
+    ? 'Here’s what PrepUp offers — personalized to your profile when you’re signed in:'
+    : 'PrepUp is a placement intelligence platform. Here’s what you can use today:'
 
   return assistant(
     `${intro}\n\n${body}\n\n` +
@@ -404,7 +404,7 @@ function buildFeaturesOverview(ctx: ChatContext): ChatMessage {
 
 function buildGuestGettingStarted(): ChatMessage {
   return assistant(
-    '**Getting started with Vertex:**\n\n' +
+    '**Getting started with PrepUp:**\n\n' +
     '1. Click **Get Started** on the homepage and register with your email\n' +
     '2. Complete **onboarding** — choose your domain (SWE, Cyber, etc.), role, and target companies\n' +
     '3. Open **Career Health** and run assessments (resume, coding, aptitude, communication)\n' +
@@ -422,9 +422,9 @@ function buildSyncHelp(): ChatMessage {
   return assistant(
     'Your data is tied to your account when you’re signed in.\n\n' +
     '• Complete onboarding and assessments — they sync to your profile\n' +
-    '• If the dashboard shows **Cloud sync off**, sign out and sign in again\n' +
+    '• If data does not appear on another device, sign out and sign in again to refresh your session\n' +
     '• Add your phone in **Settings** for WhatsApp reminders\n\n' +
-    'Everything you do in Vertex (applications, scores, activity) stays on your account.',
+    'Everything you do in PrepUp (applications, scores, activity) stays on your account.',
     [{ type: 'navigate', label: 'Settings', path: '/settings' }],
   )
 }
@@ -450,7 +450,7 @@ function scoreByKeywords(msg: string): { id: string; score: number }[] {
     { id: 'communication', words: ['communication', 'speak', 'voice', 'english'], weight: 1 },
     { id: 'interview', words: ['mock interview', 'interview prep', 'interview'], weight: 0.85 },
     { id: 'onboarding', words: ['onboard', 'onboarding', 'domain', 'setup'], weight: 0.9 },
-    { id: 'vertex-about', words: ['vertex', 'what is', 'about', 'platform'], weight: 0.8 },
+    { id: 'prepup-about', words: ['prepup', 'prep up', 'what is', 'about', 'platform'], weight: 0.8 },
     { id: 'modules', words: ['module', 'modules', 'tool', 'tools'], weight: 0.85 },
     { id: 'whatsapp', words: ['whatsapp', 'digest', 'alert', 'notification'], weight: 0.9 },
     { id: 'help', words: ['help', 'assist', 'support'], weight: 0.7 },
@@ -485,7 +485,7 @@ function replyByIntentId(id: string, msg: string, ctx: ChatContext): ChatMessage
     communication: (_m, c) => INTENTS.find(i => i.id === 'communication')!.reply(msg, c),
     interview: (_m, c) => INTENTS.find(i => i.id === 'interview')!.reply(msg, c),
     onboarding: () => buildGuestOnboarding(),
-    'vertex-about': () => buildGuestPlatformOverview(),
+    'prepup-about': () => buildGuestPlatformOverview(),
     modules: (m) => INTENTS.find(i => i.id === 'modules')!.reply(m, ctx),
     whatsapp: (_m, c) => INTENTS.find(i => i.id === 'whatsapp')!.reply(msg, c),
     help: (_m, c) => buildHelp(c),
@@ -500,7 +500,7 @@ function buildGuestOnboarding(): ChatMessage {
     '**Onboarding** sets your placement track:\n\n' +
     '• **Domain** — Software Engineering, Cybersecurity, Data, etc.\n' +
     '• **Target role** — e.g. SDE, Security Analyst\n' +
-    '• **Companies** — Vertex filters incompatible campus hirers\n' +
+    '• **Companies** — PrepUp filters incompatible campus hirers\n' +
     '• **Weekly hours** — adjusts plan intensity\n\n' +
     'You can update domain and companies later in Settings.',
     [{ type: 'navigate', label: 'Settings', path: '/settings' }],
@@ -528,7 +528,7 @@ const INTENTS: IntentHandler[] = [
       return assistant(
         name
           ? `Hello **${name}**! Ask about your plan, gaps, readiness, applications, or say "open planner".`
-          : 'Hello! Ask about Vertex, getting started, or available modules.',
+          : 'Hello! Ask about PrepUp, getting started, or available modules.',
         getChatStarters(ctx.loggedIn).slice(0, 3).map(s => ({ type: 'prompt', label: s.replace(/\?.*$/, '').slice(0, 22), message: s })),
       )
     },
@@ -537,7 +537,7 @@ const INTENTS: IntentHandler[] = [
     id: 'features',
     score: (m) => {
       if (/\bfeatures?\b/i.test(m)) return 96
-      if (/\bwhat\b.*\b(do|offer|include|have)\b/i.test(m) && /\b(vertex|platform|you|it)\b/i.test(m)) return 92
+      if (/\bwhat\b.*\b(do|offer|include|have)\b/i.test(m) && /\b(prepup|prep up|platform|you|it)\b/i.test(m)) return 92
       if (/\b(capabilit|functionality|what can you do)\b/i.test(m)) return 90
       return 0
     },
@@ -723,8 +723,8 @@ const INTENTS: IntentHandler[] = [
     },
   },
   {
-    id: 'vertex-about',
-    score: (m) => (/\b(vertex|what is this|about the platform|what does vertex)\b/i.test(m) ? 85 : 0),
+    id: 'prepup-about',
+    score: (m) => (/\b(prepup|prep up|what is this|about the platform|what does prepup)\b/i.test(m) ? 85 : 0),
     reply: () => buildGuestPlatformOverview(),
   },
   {
@@ -756,7 +756,7 @@ function applyGuestGate(intentId: string, ctx: ChatContext, reply: ChatMessage):
     [
       { type: 'prompt', label: 'Features', message: 'What are the features?' },
       { type: 'prompt', label: 'Get started', message: 'How do I get started?' },
-      { type: 'prompt', label: 'What is Vertex?', message: 'What is Vertex?' },
+      { type: 'prompt', label: 'What is PrepUp?', message: 'What is PrepUp?' },
     ],
   )
 }
@@ -795,7 +795,7 @@ export function processChatMessage(raw: string, ctx: ChatContext): ChatMessage {
   return assistant(
     ctx.loggedIn
       ? 'I can help with your **daily plan**, **skill gaps**, **readiness**, **applications**, **companies**, **resources**, or **interviews**. What would you like to explore?'
-      : 'I can walk you through **features**, **getting started**, **onboarding**, and how Vertex helps with placement prep. What would you like to know?',
+      : 'I can walk you through **features**, **getting started**, **onboarding**, and how PrepUp helps with placement prep. What would you like to know?',
     getChatStarters(ctx.loggedIn).slice(0, 4).map(s => ({
       type: 'prompt' as const,
       label: s.replace(/\?.*$/, '').slice(0, 22),

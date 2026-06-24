@@ -57,7 +57,7 @@ def send_status(phone: str) -> dict:
     if not profile:
         return send_whatsapp(
             phone,
-            "👋 No CareerOS profile linked yet.\n\nSign in at CareerOS with this WhatsApp number, then open the app once to sync.",
+            "👋 No PrepUp profile linked yet.\n\nSign in at PrepUp with this WhatsApp number, then open the app once to sync.",
         )
     return send_whatsapp(phone, build_status_message(profile))
 
@@ -65,14 +65,14 @@ def send_status(phone: str) -> dict:
 def send_resources(phone: str) -> dict:
     profile = get_profile(phone)
     if not profile:
-        return send_whatsapp(phone, "Link your profile first — sign in to CareerOS with this phone number.")
+        return send_whatsapp(phone, "Link your profile first — sign in to PrepUp with this phone number.")
     return send_whatsapp(phone, build_resources_message(profile))
 
 
 def send_plan(phone: str) -> dict:
     profile = get_profile(phone)
     if not profile:
-        return send_whatsapp(phone, "Link your profile first — sign in to CareerOS with this phone number.")
+        return send_whatsapp(phone, "Link your profile first — sign in to PrepUp with this phone number.")
     return send_whatsapp(phone, build_plan_message(profile))
 
 
@@ -91,7 +91,7 @@ def handle_inbound(phone: str, body: str) -> dict:
     if cmd in ("WEEKLY", "REPORT", "WEEK", "4"):
         profile = get_profile(phone_norm)
         if not profile:
-            return send_whatsapp(phone_norm, "Link your profile first — sign in to CareerOS with this phone number.")
+            return send_whatsapp(phone_norm, "Link your profile first — sign in to PrepUp with this phone number.")
         return send_whatsapp(phone_norm, build_weekly_report_message(profile))
 
     profile = get_profile(phone_norm)

@@ -37,6 +37,7 @@ export default function ResourceRecommender() {
   const { user, assessment, platformData } = useApp()
   const navigate = useNavigate()
   const [activeCompany, setActiveCompany] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   const domain = user?.domain ?? 'Software Engineering'
   const level = (user?.level ?? 'intermediate') as PrepLevel
@@ -58,6 +59,27 @@ export default function ResourceRecommender() {
   const selectedSection = activeCompany
     ? companySections.find(s => s.company === activeCompany)
     : companySections[0]
+  const visibleCategories = activeCategory
+    ? categories.filter(c => c.key === activeCategory)
+    : categories
+  const visibleTopPicks = activeCategory
+    ? categories.find(c => c.key === activeCategory)?.items ?? []
+    : topPicks
+
+  if (!hasEvidence) {
+    return (
+      <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-16 text-center space-y-6">
+        <BookOpen size={48} className="mx-auto opacity-30" />
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Resources unlock after assessment</h1>
+        <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--text-2)' }}>
+          Complete at least one Career Health module (start with Resume) so we can analyze your gaps and rank resources for {domain}.
+        </p>
+        <button type="button" onClick={() => navigate('/health?module=resume')} className="btn-primary mx-auto">
+          Start Resume Assessment <ArrowRight size={14} className="inline ml-1" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -123,14 +145,14 @@ export default function ResourceRecommender() {
           <p className="text-[11px] font-semibold uppercase tracking-wider px-2 py-2" style={{ color: 'var(--text-3)' }}>
             Workspace
           </p>
-          <NavItem icon={LayoutList} label="Top picks" active={!activeCompany} onClick={() => setActiveCompany(null)} />
+          <NavItem icon={LayoutList} label="Top picks" active={!activeCompany && !activeCategory} onClick={() => { setActiveCompany(null); setActiveCategory(null) }} />
           {companySections.map(section => (
             <NavItem
               key={section.company}
               icon={Building2}
               label={section.company}
-              active={activeCompany === section.company || (!activeCompany && section === companySections[0] && false)}
-              onClick={() => setActiveCompany(section.company)}
+              active={activeCompany === section.company}
+              onClick={() => { setActiveCompany(section.company); setActiveCategory(null) }}
               meta={`${section.resources.length}`}
             />
           ))}
@@ -139,8 +161,8 @@ export default function ResourceRecommender() {
               key={cat.key}
               icon={BookOpen}
               label={cat.label}
-              active={false}
-              onClick={() => setActiveCompany(null)}
+              active={activeCategory === cat.key}
+              onClick={() => { setActiveCompany(null); setActiveCategory(cat.key) }}
               meta={cat.gap > 0 ? `−${cat.gap}` : undefined}
             />
           ))}
@@ -157,7 +179,7 @@ export default function ResourceRecommender() {
                   <span className="text-xs" style={{ color: 'var(--text-3)' }}>Gap + company ranked</span>
                 </div>
                 <div className="space-y-2">
-                  {topPicks.length > 0 ? topPicks.map((r, i) => (
+                  {visibleTopPicks.length > 0 ? visibleTopPicks.map((r, i) => (
                     <ResourceRow key={`${r.url}-${i}`} resource={r} index={i} />
                   )) : (
                     <EmptyState onAssess={() => navigate('/health')} />
@@ -197,10 +219,12 @@ export default function ResourceRecommender() {
             </>
           )}
 
-          {!activeCompany && categories.length > 0 && (
+          {!activeCompany && visibleCategories.length > 0 && (
             <section className="space-y-6 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-              <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>By skill area</h2>
-              {categories.map(cat => (
+              <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>
+                {activeCategory ? visibleCategories[0]?.label : 'By skill area'}
+              </h2>
+              {visibleCategories.map(cat => (
                 <div key={cat.key} className="space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{cat.label}</p>

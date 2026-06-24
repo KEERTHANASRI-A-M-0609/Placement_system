@@ -35,12 +35,14 @@ export default function NotificationsPanel() {
     wins: notifications.filter(n => n.type === 'success'),
   }
 
-  const handleAction = (moduleId?: string) => {
+  const handleAction = (moduleId?: string, type?: string) => {
     if (moduleId) {
       navigate(`/health?module=${moduleId as AssessmentModuleId}`)
       return
     }
-    navigate('/health')
+    if (type === 'danger' || type === 'warning') navigate('/planner')
+    else if (type === 'info') navigate('/resources')
+    else navigate('/health')
   }
 
   return (
@@ -126,16 +128,14 @@ export default function NotificationsPanel() {
                         </div>
                         <p className="font-semibold text-sm mb-1" style={{ color: 'var(--text)' }}>{n.title}</p>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-2)' }}>{n.message}</p>
-                        {!n.read && (
-                          <button
-                            type="button"
-                            onClick={() => handleAction(n.moduleId)}
-                            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
-                            style={{ color: 'var(--accent)' }}
-                          >
-                            <Zap size={12} /> Take action
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleAction(n.moduleId, n.type)}
+                          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          <Zap size={12} /> {n.moduleId ? 'Open module' : n.type === 'success' ? 'View progress' : 'Take action'}
+                        </button>
                       </div>
                     </motion.div>
                   )

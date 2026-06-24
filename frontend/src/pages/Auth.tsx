@@ -4,7 +4,8 @@ import { useApp } from '../store/AppContext'
 import type { UserProfile } from '../types'
 import { saveAccount, findAccount, hashPw } from '../services/authStore'
 import { storePendingPassword, loginMongo, registerMongo } from '../services/mongoSync'
-import { Target, ArrowRight, Eye, EyeOff, ChevronLeft } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, ChevronLeft } from 'lucide-react'
+import PrepUpLogo from '../components/brand/PrepUpLogo'
 
 type Mode = 'login' | 'register'
 
@@ -58,19 +59,15 @@ export default function Auth() {
         const profile: UserProfile = {
           name, email, phone,
           college: '', branch: '', graduationYear: '', cgpa: '',
-          goal: 'placement', domain: '',
-          level: 'intermediate', weeklyHours: '10 – 20 hrs', targetCompanies: [],
+          goal: '', domain: '',
+          level: 'intermediate', weeklyHours: '', targetCompanies: [],
         }
         saveAccount({ name, email, phone, passwordHash: hashPw(pw), profile })
         storePendingPassword(pw)
-        const mongoOk = await registerMongo(profile, pw)
+        await registerMongo(profile, pw)
         setMode('login')
         setForm({ name: '', email, phone: '', password: '' })
-        if (mongoOk) {
-          setSuccess(`Account created for ${name}. Sign in to continue — your profile is backed up to the cloud.`)
-        } else {
-          setSuccess(`Account created for ${name}. Sign in to continue. Start the backend (cd backend && npm run dev) to enable cloud sync.`)
-        }
+        setSuccess(`Account created for ${name}. Sign in to continue.`)
         checkEmailForLogin(email)
       } else {
         const account = findAccount(email)!
@@ -87,10 +84,10 @@ export default function Auth() {
           branch: account.profile?.branch ?? '',
           graduationYear: account.profile?.graduationYear ?? '',
           cgpa: account.profile?.cgpa ?? '',
-          goal: account.profile?.goal ?? 'placement',
+          goal: account.profile?.goal ?? '',
           domain: account.profile?.domain ?? '',
           level: account.profile?.level ?? 'intermediate',
-          weeklyHours: account.profile?.weeklyHours ?? '10 – 20 hrs',
+          weeklyHours: account.profile?.weeklyHours ?? '',
           targetCompanies: account.profile?.targetCompanies ?? [],
         }
         if (!profile.name?.trim()) {
@@ -98,11 +95,8 @@ export default function Auth() {
           setLoading(false); return
         }
         storePendingPassword(pw)
-        const mongoOk = await loginMongo(email, pw)
+        await loginMongo(email, pw)
         setUser(profile)
-        if (!mongoOk) {
-          setSuccess('Signed in. Cloud backup is offline — your data is saved on this device.')
-        }
         resetAssessmentNudge()
         if ('Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission()
@@ -125,10 +119,8 @@ export default function Auth() {
             <ChevronLeft size={16} /> <span className="hidden sm:inline">Back to </span>home
           </button>
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded bg-white flex items-center justify-center shrink-0">
-              <Target size={16} style={{ color: 'var(--commerce-blue)' }} />
-            </div>
-            <span className="font-semibold text-white text-base sm:text-lg truncate">Vertex</span>
+            <PrepUpLogo size={32} />
+            <span className="font-semibold text-white text-base sm:text-lg truncate">PrepUp</span>
           </div>
           <div className="w-16 sm:w-28 shrink-0" />
         </div>

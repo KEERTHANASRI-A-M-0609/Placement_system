@@ -1,4 +1,4 @@
-# Placement System (Vertex)
+# Placement System (PrepUp)
 
 Full-stack placement readiness and execution platform for students preparing for campus placements.
 

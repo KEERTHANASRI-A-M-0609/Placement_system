@@ -72,7 +72,7 @@ export const WIKI_SEED: WikiPage[] = [
 • Skills section matches job description keywords
 • GitHub + LinkedIn links that work
 • No photos or graphics for ATS systems
-• Run through Vertex Resume Intelligence module`,
+• Run through PrepUp Resume Intelligence module`,
   },
   {
     id: 'wiki-service',
@@ -90,7 +90,7 @@ export const WIKI_SEED: WikiPage[] = [
 • Strong projects and GitHub evidence
 • Fewer slots, higher competition
 
-**Match your prep** to target company tier in Vertex Readiness.`,
+**Match your prep** to target company tier in PrepUp Readiness.`,
   },
 ]
 

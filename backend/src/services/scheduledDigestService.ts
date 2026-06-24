@@ -3,7 +3,6 @@ import { CareerProfile } from '../models/CareerProfile'
 import { Application } from '../models/Application'
 import { logger } from '../utils/logger'
 import { sendWhatsAppReliable, type WhatsAppSendResult } from './twilioWhatsApp'
-import { sendEmail } from './emailService'
 import { buildDailyDigest, buildWeeklyReport } from './whatsappMessages'
 import { buildWhatsAppProfileFromDb } from './whatsappProfileBuilder'
 
@@ -82,10 +81,6 @@ export async function sendUserDailyDigest(userId: string, force = false): Promis
     return false
   }
 
-  if (user.email && prefOn(user.notificationPrefs ?? {}, 'emailDigest')) {
-    await sendEmail(user.email, 'Your daily Vertex digest', message)
-  }
-
   user.lastDailyDigestDate = dateKey
   await user.save()
   logger.info(`[DailyDigest] Sent to user ${userId}`)
@@ -109,10 +104,6 @@ export async function sendUserWeeklyReport(userId: string, force = false): Promi
   if (wa.status === 'error') {
     logger.warn(`[WeeklyReport] WhatsApp failed for ${userId}:`, wa.reason)
     return false
-  }
-
-  if (user.email && prefOn(user.notificationPrefs ?? {}, 'emailDigest')) {
-    await sendEmail(user.email, 'Your weekly Vertex report', message)
   }
 
   user.lastWeeklyReportDate = dateKey

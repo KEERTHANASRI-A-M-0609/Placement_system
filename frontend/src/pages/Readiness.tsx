@@ -100,7 +100,7 @@ export default function Readiness() {
       <div className="p-6 max-w-xl mx-auto text-center space-y-6 pt-20">
         <p className="font-display text-2xl font-semibold" style={{ color: 'var(--text)' }}>No assessment yet</p>
         <p className="text-sm" style={{ color: 'var(--text-2)' }}>
-          Vertex needs your platform data to calculate a real score.
+          PrepUp needs your platform data to calculate a real score.
         </p>
         <button onClick={() => setView('assessment')}
           className="px-6 py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90"

@@ -3,11 +3,12 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, BookOpen, Briefcase, Target, AlertTriangle,
   BarChart2, Settings, Sun, Moon, LogOut, Home, Activity,
-  ChevronRight, Wifi, WifiOff, CalendarDays, Bell, Sparkles,
+  ChevronRight, CalendarDays, Bell, Sparkles,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { computeOverall } from '../engine/intelligence'
 import { computeReadinessConfidence } from '../engine/assessmentEngine'
+import PrepUpLogo from './brand/PrepUpLogo'
 import AnimatedNumber from './motion/AnimatedNumber'
 
 const nav = [
@@ -25,7 +26,7 @@ const nav = [
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const { user, assessment, theme, toggleTheme, signOut, setView, backendOnline, mongoOnline, notifications, platformData } = useApp()
+  const { user, assessment, theme, toggleTheme, signOut, setView, notifications, platformData } = useApp()
 
   const confidence = computeReadinessConfidence(assessment, platformData ?? null)
   const score = confidence.measuredSections > 0 && assessment ? computeOverall(assessment) : null
@@ -48,15 +49,12 @@ export default function Sidebar() {
       <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--primary)' }}>
-              <Target size={16} className="text-white" />
-            </div>
+            <PrepUpLogo size={32} />
             <div>
               <p className="font-display font-bold text-base leading-none" style={{ color: 'var(--text)' }}>
-                Vertex
+                PrepUp
               </p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>Placement Intelligence</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>Placement intelligence</p>
             </div>
           </div>
           <button onClick={() => navigate('/notifications')} className="relative p-1 rounded-md hover:bg-[var(--bg-muted)]">
@@ -155,16 +153,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Backend status */}
-      <div className="mx-4 mb-3 px-3 py-2 rounded-lg flex items-center gap-2"
-        style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
-        {backendOnline
-          ? <Wifi size={13} className="text-emerald-500 shrink-0" />
-          : <WifiOff size={13} className="shrink-0" style={{ color: 'var(--text-3)' }} />}
-        <span className="text-xs" style={{ color: backendOnline ? '#059669' : 'var(--text-3)' }}>
-          {backendOnline ? 'Backend connected' : 'Backend offline'}
-        </span>
-      </div>
+      {/* Backend status removed — sync is silent */}
 
       {/* Bottom actions */}
       <div className="px-3 pb-4 space-y-0.5" style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>

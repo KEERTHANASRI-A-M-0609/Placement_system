@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../store/AppContext'
 import type { UserProfile } from '../types'
-import { ChevronRight, Target, Check, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { ChevronRight, Check, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import PrepUpLogo from '../components/brand/PrepUpLogo'
 
 import { findAccount, saveAccount } from '../services/authStore'
 import { ensureMongoAuth, syncFullSessionToMongo } from '../services/mongoSync'
+import { STORAGE_KEY } from '../services/storageKeys'
 import { mongoAPI } from '../services/mongoAPI'
 import {
   getRolesForDomain, getCompatibleCompanies, companyOffersDomain, filterCompaniesForDomain,
@@ -57,14 +59,33 @@ function InputField({ label, placeholder, value, onChange, type = 'text' }: {
 type Step = 0 | 1 | 2 | 3 | 4
 
 export default function Onboarding() {
-  const { setUser, setView, user, resetAssessmentNudge } = useApp()
+  const { setUser, setView, user, resetAssessmentNudge, recordIntelligenceEvent } = useApp()
   const [step, setStep] = useState<Step>(0)
   const [form, setForm] = useState<Partial<UserProfile>>({
-    goal: 'placement', domain: '', level: 'intermediate', weeklyHours: '10 – 20 hrs', targetCompanies: [], targetRole: '',
+    goal: '', domain: '', level: undefined, weeklyHours: '', targetCompanies: [], targetRole: '',
   })
   const [customDomain, setCustomDomain] = useState('')
   const [companyAnalysis, setCompanyAnalysis] = useState<CompanyAnalysisResult | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
+
+  useEffect(() => {
+    if (!user?.domain) return
+    setForm({
+      goal: user.goal ?? '',
+      domain: domains.includes(user.domain) ? user.domain : 'Other',
+      level: user.level,
+      weeklyHours: user.weeklyHours ?? '',
+      targetCompanies: user.targetCompanies ?? [],
+      targetRole: user.targetRole ?? '',
+      name: user.name,
+      college: user.college,
+      branch: user.branch,
+      graduationYear: user.graduationYear,
+      cgpa: user.cgpa,
+      email: user.email,
+    })
+    if (!domains.includes(user.domain)) setCustomDomain(user.domain)
+  }, [user])
 
   const set = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) =>
     setForm(f => ({ ...f, [k]: v }))
@@ -167,15 +188,15 @@ export default function Onboarding() {
       goal:            form.goal            ?? 'placement',
       domain:          domainVal,
       targetRole:      form.targetRole || getRolesForDomain(domainVal)[0],
-      level:           form.level           ?? user?.level ?? 'intermediate',
-      weeklyHours:     form.weeklyHours     ?? '10 – 20 hrs',
+      level:           form.level!,
+      weeklyHours:     form.weeklyHours!,
       targetCompanies: valid,
     }
     setUser(profile)
     updateAccountProfile(profile.email, profile)
     ensureMongoAuth(profile).then(async ok => {
       if (ok) {
-        const s = JSON.parse(localStorage.getItem('cos_v5') || '{}')
+        const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
         await syncFullSessionToMongo({
           user: profile,
           assessment: s.assessment ?? null,
@@ -187,13 +208,21 @@ export default function Onboarding() {
       }
     }).catch(() => {})
     resetAssessmentNudge()
+    recordIntelligenceEvent({
+      phase: 'identity',
+      type: 'onboarding_complete',
+      title: 'Career identity defined',
+      impact: `${profile.targetRole} · ${domainVal} — benchmarks and company filters are now personalized.`,
+      meta: { targetCompanies: valid, level: profile.level },
+    })
     setView('app')
   }
 
   const steps = [
     {
-      title: 'What are you preparing for?',
-      sub: 'Vertex is built for one outcome — getting placed.',
+      phase: 'Phase 01 · Identity',
+      title: 'Define your placement outcome',
+      sub: 'Your career blueprint starts with a clear target — role, domain, and ambition.',
       content: (
         <div className="space-y-3">
           <button onClick={() => set('goal', 'placement')}
@@ -219,8 +248,9 @@ export default function Onboarding() {
       ),
     },
     {
-      title: 'Your target domain',
-      sub: 'Vertex will curate your benchmarks, gaps, and resources for this role.',
+      phase: 'Phase 01 · Identity',
+      title: 'Set your career domain & role',
+      sub: 'Domain and role shape every intelligence output — benchmarks, gaps, and daily actions.',
       content: (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
@@ -264,8 +294,9 @@ export default function Onboarding() {
       ),
     },
     {
-      title: 'Your preparation level',
-      sub: 'Vertex adjusts benchmarks, resource difficulty, and time estimates to match where you are today.',
+      phase: 'Phase 01 · Identity',
+      title: 'Calibrate your experience level',
+      sub: 'Intelligence models adjust benchmarks, difficulty, and time estimates to your current position.',
       content: (
         <div className="space-y-3">
           {prepLevels.map(l => (
@@ -283,8 +314,9 @@ export default function Onboarding() {
       ),
     },
     {
-      title: 'Weekly available hours',
-      sub: 'Vertex builds your plan around your real schedule.',
+      phase: 'Phase 01 · Identity',
+      title: 'Define your execution capacity',
+      sub: 'Weekly hours inform how the action engine sizes daily priorities and recovery plans.',
       content: (
         <div className="grid grid-cols-2 gap-3">
           {hours.map(h => (
@@ -298,8 +330,9 @@ export default function Onboarding() {
       ),
     },
     {
-      title: 'Target companies',
-      sub: 'Only companies that hire for your domain on campus are shown.',
+      phase: 'Phase 01 · Identity',
+      title: 'Select target companies',
+      sub: 'Company targets personalize intelligence — only employers that hire for your domain are shown.',
       content: (() => {
         const domain = resolvedDomain()
         const selectable = getCompatibleCompanies(domain)
@@ -336,7 +369,7 @@ export default function Onboarding() {
                   {analyzing ? (
                     <><Loader2 size={14} className="animate-spin" /> Analyzing companies…</>
                   ) : (
-                    <><CheckCircle2 size={14} className="text-emerald-600" /> Analyzed by Vertex company model ({companyAnalysis?.model})</>
+                    <><CheckCircle2 size={14} className="text-emerald-600" /> Analyzed by PrepUp company model ({companyAnalysis?.model})</>
                   )}
                 </div>
                 {!analyzing && companyAnalysis && companyAnalysis.companies.map(c => (
@@ -354,8 +387,9 @@ export default function Onboarding() {
       })(),
     },
     {
-      title: 'Your profile',
-      sub: 'This is used only for your placement profile card.',
+      phase: 'Phase 01 · Identity',
+      title: 'Complete your career profile',
+      sub: 'Academic context enriches your placement identity card and outcome tracking.',
       content: (
         <div className="space-y-3">
           <InputField label="Full Name" placeholder="Arjun Sharma"
@@ -376,9 +410,15 @@ export default function Onboarding() {
   ]
 
   const total = steps.length
-  const canProceed = step === 1
-    ? (!!form.domain && (form.domain === 'Other' ? !!customDomain.trim() : !!form.targetRole))
-    : true
+  const canProceed = step === 0
+    ? Boolean(form.goal)
+    : step === 1
+      ? (!!form.domain && (form.domain === 'Other' ? !!customDomain.trim() : !!form.targetRole))
+      : step === 2
+        ? Boolean(form.level)
+        : step === 3
+          ? Boolean(form.weeklyHours)
+          : true
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
@@ -390,10 +430,8 @@ export default function Onboarding() {
             <ChevronRight size={14} className="rotate-180" /> Home
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--primary)' }}>
-              <Target size={15} className="text-white" />
-            </div>
-            <span className="font-display font-bold text-xl" style={{ color: 'var(--text)' }}>Vertex</span>
+            <PrepUpLogo size={32} />
+            <span className="font-display font-bold text-xl" style={{ color: 'var(--text)' }}>PrepUp</span>
           </div>
           <div className="w-16" />
         </div>
@@ -411,7 +449,7 @@ export default function Onboarding() {
             exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.22 }}
             className="surface-elevated p-8 md:p-10">
             <p className="text-label mb-2">
-              Step {step + 1} of {total}
+              {steps[step].phase} · Step {step + 1} of {total}
             </p>
             <h2 className="text-display font-display mb-2" style={{ color: 'var(--text)' }}>
               {steps[step].title}
@@ -429,7 +467,7 @@ export default function Onboarding() {
               <button onClick={step < total - 1 ? next : finish}
                 disabled={!canProceed}
                 className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40 btn-accent">
-                {step < total - 1 ? 'Continue' : 'Go to Dashboard'}
+                {step < total - 1 ? 'Continue' : 'Activate Intelligence'}
                 <ChevronRight size={15} />
               </button>
             </div>

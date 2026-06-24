@@ -1,6 +1,5 @@
 import { User } from '../models/User'
 import { logger } from '../utils/logger'
-import { sendEmail } from './emailService'
 import { notificationDispatch } from './notificationDispatch'
 import {
   computeDaysInactive,
@@ -55,7 +54,6 @@ export async function processUserInactiveReminder(userId: string): Promise<{ sen
   }
 
   const prefs = user.notificationPrefs ?? {}
-  const emailOk = prefs.emailInactive !== false
   const whatsappOk = prefs.whatsappInactive !== false && prefs.whatsappEnabled !== false
 
   const { title, message } = buildInactiveMessage(user.name, daysInactive)
@@ -66,7 +64,6 @@ export async function processUserInactiveReminder(userId: string): Promise<{ sen
     type: 'warning',
     moduleId: undefined,
     channels: {
-      email: emailOk,
       whatsapp: whatsappOk,
     },
   })
@@ -137,9 +134,4 @@ export async function syncUserActivitySession(
   }
 
   return { daysInactive, shouldAlert }
-}
-
-export async function sendTestInactiveEmail(email: string, name: string) {
-  const { title, message } = buildInactiveMessage(name, 3)
-  return sendEmail(email, title, message)
 }

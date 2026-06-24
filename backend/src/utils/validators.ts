@@ -146,6 +146,14 @@ export const schemas = {
       .required(),
     tags: Joi.array().items(Joi.string()),
   }),
+
+  intelligenceEvent: Joi.object({
+    phase: Joi.string().valid('identity', 'evidence', 'intelligence', 'execution').required(),
+    type: Joi.string().max(80).required(),
+    title: Joi.string().max(200).required(),
+    impact: Joi.string().max(500).required(),
+    meta: Joi.object().unknown(true).optional(),
+  }),
 }
 
 export const validate = (data: unknown, schema: Joi.Schema) => {

@@ -340,3 +340,36 @@ export function getAssessmentModuleGroups(
     optional: optional.filter(c => c.module.id === 'interview' || c.module.optional),
   }
 }
+
+export interface AssessmentBlocker {
+  moduleId: AssessmentModuleId
+  label: string
+  path: string
+}
+
+/** Modules still required before Daily Planner and full analysis unlock. */
+export function getAssessmentBlockers(
+  domain: string,
+  assessment: Assessment | null,
+  platformData: PlatformData | null,
+): AssessmentBlocker[] {
+  const mandatory = getRoleMandatorySections(domain)
+  const sections = assessment
+    ? inferSections(assessment)
+    : { leetcode: false, github: false, resume: false, aptitude: false, communication: false }
+  const blockers: AssessmentBlocker[] = []
+
+  const add = (moduleId: AssessmentModuleId, label: string) => {
+    blockers.push({ moduleId, label, path: `/health?module=${moduleId}` })
+  }
+
+  if (!assessment?.resumeEvidence) add('resume', 'Resume Intelligence')
+  if (mandatory.aptitude && !assessment?.aptitudeEvidence) add('aptitude', 'Aptitude Assessment')
+  if (mandatory.communication && (!assessment?.commEvidence || assessment.commEvidence.method === 'skipped')) {
+    add('communication', 'Communication Check')
+  }
+  if (mandatory.leetcode && !sections.leetcode) add('coding', 'Coding / LeetCode')
+  if (mandatory.github && !sections.github) add('github', 'GitHub Profile')
+
+  return blockers
+}

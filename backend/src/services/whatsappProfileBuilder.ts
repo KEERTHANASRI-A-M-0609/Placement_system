@@ -1,6 +1,7 @@
 import { IUser } from '../models/User'
 import { ICareerProfile } from '../models/CareerProfile'
 import { IApplication } from '../models/Application'
+import { getDailyChallengeForUser, challengeUrl } from './dailyChallengeService'
 import { computeDaysInactive, type ActivityLogEntry } from '../utils/activityEngine'
 
 function computeStreak(log: ActivityLogEntry[]): number {
@@ -117,5 +118,9 @@ export function buildWhatsAppProfileFromDb(
     scores,
     gaps,
     applications: appPayload,
+    daily_challenge: (() => {
+      const c = getDailyChallengeForUser(String(user._id))
+      return { title: c.title, difficulty: c.difficulty, topic: c.topic, url: challengeUrl(c.slug) }
+    })(),
   }
 }

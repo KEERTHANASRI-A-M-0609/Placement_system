@@ -48,4 +48,24 @@ router.get(
   })
 )
 
+router.get(
+  '/intelligence-events',
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { intelligenceEventService } = await import('../services/intelligenceEventService')
+    const limit = Math.min(parseInt(String(req.query.limit || '40'), 10) || 40, 100)
+    const events = await intelligenceEventService.list(req.user!.userId, limit)
+    res.json({ events, syncedAt: new Date().toISOString() })
+  })
+)
+
+router.post(
+  '/intelligence-events',
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const data = validate(req.body, schemas.intelligenceEvent)
+    const { intelligenceEventService } = await import('../services/intelligenceEventService')
+    const event = await intelligenceEventService.record(req.user!.userId, data)
+    res.status(201).json({ event, syncedAt: new Date().toISOString() })
+  })
+)
+
 export default router

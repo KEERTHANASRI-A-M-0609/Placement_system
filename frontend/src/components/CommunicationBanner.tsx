@@ -7,12 +7,13 @@ import CommunicationSkillCheck from './CommunicationSkillCheck'
 import { useState } from 'react'
 import type { CommEvidence } from '../types'
 import { computeFromEvidence } from '../engine/intelligence'
+import { COMM_DISMISSED_KEY } from '../services/storageKeys'
 
 export default function CommunicationBanner() {
   const { assessment, setAssessment, platformData, pushNotification, user } = useApp()
   const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem('cos_comm_dismissed') === '1')
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(COMM_DISMISSED_KEY) === '1')
   const domain = user?.domain ?? 'Software Engineering'
 
   if (!isAssessmentComplete(assessment, domain) || dismissed) return null
@@ -41,7 +42,7 @@ export default function CommunicationBanner() {
   }
 
   const dismiss = () => {
-    localStorage.setItem('cos_comm_dismissed', '1')
+    localStorage.setItem(COMM_DISMISSED_KEY, '1')
     setDismissed(true)
   }
 

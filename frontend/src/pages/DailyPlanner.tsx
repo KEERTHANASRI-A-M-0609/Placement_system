@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 import { isAssessmentComplete, getRecommendedAddons } from '../engine/intelligence'
+import { getAssessmentBlockers } from '../engine/assessmentEngine'
 import { groupTasksByTier, resolveTaskTier, type PlannerTaskTier } from '../engine/plannerTaskTiers'
 import { generatePersonalizedPlan, generateWeeklyPlan, analyzeWeekPlan, getDayTheme, type PlannerTaskItem } from '../engine/plannerEngine'
 import { enrichPlannerTask } from '../engine/plannerTaskGuidelines'
 import { localDateKey } from '../engine/activityEngine'
 import TaskVerificationModal, { type TaskVerifyPayload } from '../components/planner/TaskVerificationModal'
+import DailyReminderStrip from '../components/reminders/DailyReminderStrip'
 import { CheckCircle2, Circle, Plus, X, Calendar, Zap, Clock, ExternalLink, ShieldCheck, ShieldAlert, BookOpen, ChevronDown, ChevronUp, Target, Sparkles, ArrowRight } from 'lucide-react'
 
 interface Task {
@@ -29,8 +31,7 @@ interface Task {
   tier?: PlannerTaskTier
 }
 
-const PLANNER_KEY = 'cos_planner'
-const PLAN_GENERATED_KEY = 'cos_plan_generated_date'
+import { PLANNER_KEY, PLAN_GENERATED_KEY } from '../services/storageKeys'
 function loadTasks(): Task[] {
   try { return JSON.parse(localStorage.getItem(PLANNER_KEY) || '[]') } catch { return [] }
 }
@@ -69,7 +70,9 @@ export default function DailyPlanner() {
 
   const assessed = isAssessmentComplete(assessment, user?.domain)
   const domain = user?.domain || 'Software Engineering'
+  const blockers = getAssessmentBlockers(domain, assessment, null)
   const recommendedAddons = getRecommendedAddons(domain, assessment)
+  const mandatoryAddons = recommendedAddons.filter(a => a.mandatory)
   const pendingAddons = recommendedAddons.filter(a => !a.mandatory)
 
   const getWeek = () => {
@@ -349,6 +352,14 @@ export default function DailyPlanner() {
         </div>
       </section>
 
+      {user && (
+        <DailyReminderStrip
+          userKey={user.email ?? user.phone ?? 'user'}
+          activityLog={activityLog}
+          compact
+        />
+      )}
+
       {!assessed && (
         <div className="dash-section border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
           <div className="flex items-start gap-3">
@@ -357,19 +368,38 @@ export default function DailyPlanner() {
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-1">Step 1 — Required</p>
-              <h2 className="font-bold text-slate-900 mb-1">Complete basic assessment to unlock your plan</h2>
+              <h2 className="font-bold text-slate-900 mb-1">Complete assessments to unlock your plan</h2>
               <p className="text-sm text-slate-600 mb-4">
-                Only <strong>Resume Intelligence</strong> is required to start. Other modules sharpen recommendations — add them when you are ready.
+                {blockers.length > 0 ? (
+                  <>Still needed for <strong>{domain}</strong>: {blockers.map(b => b.label).join(', ')}.</>
+                ) : (
+                  <>Finish your profile evidence to generate AI tasks.</>
+                )}
               </p>
               <button
                 type="button"
-                onClick={() => navigate('/health?module=resume')}
+                onClick={() => navigate(blockers[0]?.path ?? '/health?module=resume')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700"
               >
-                Start with Resume <ArrowRight size={14} />
+                {blockers[0] ? `Start: ${blockers[0].label}` : 'Open Career Health'} <ArrowRight size={14} />
               </button>
             </div>
           </div>
+          {mandatoryAddons.length > 0 && (
+            <div className="mt-5 pt-4 border-t border-blue-100">
+              <p className="text-xs font-bold uppercase tracking-wider text-red-600 mb-2 flex items-center gap-1">
+                <Target size={12} /> Required for your role
+              </p>
+              <ul className="space-y-2">
+                {mandatoryAddons.map(addon => (
+                  <li key={addon.key} className="text-sm text-slate-700 flex items-start gap-2">
+                    <span className="text-red-500 mt-0.5">•</span>
+                    <span><strong>{addon.label}</strong> — {addon.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {pendingAddons.length > 0 && (
             <div className="mt-5 pt-4 border-t border-blue-100">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1">

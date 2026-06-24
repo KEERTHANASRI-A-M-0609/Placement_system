@@ -103,7 +103,7 @@ export function getRecommendedAddons(domain: string, a: Assessment | null | unde
     addons.push({
       key: 'aptitude',
       label: 'Aptitude Check',
-      reason: `${domain} placement track expects ${bench.aptitude}%+ aptitude — take the proctored quiz when ready.`,
+      reason: `${domain} placement track expects ${bench.aptitude}%+ aptitude — take the adaptive quiz in Career Health.`,
       mandatory: mandatory.aptitude,
     })
   }
@@ -111,7 +111,7 @@ export function getRecommendedAddons(domain: string, a: Assessment | null | unde
     addons.push({
       key: 'communication',
       label: 'Communication Check',
-      reason: `${domain} interviews need ${bench.communication}%+ communication — optional voice check with camera proctoring.`,
+      reason: `${domain} interviews need ${bench.communication}%+ communication — voice check in Career Health (~2 min).`,
       mandatory: mandatory.communication,
     })
   }
@@ -789,27 +789,33 @@ export function computeHealthFactors(
 
 export function buildWeeklySnapshots(
   log: ActivityLog[], assessment: Assessment | null
-): { week: string; readiness: number; hours: number }[] {
-  if (!assessment) return []
-  const base = computeOverall(assessment)
+): { week: string; readiness: number; hours: number; activeDays: number }[] {
   const today = new Date()
-  const result: { week: string; readiness: number; hours: number }[] = []
+  const base = assessment ? computeOverall(assessment) : 0
+  const result: { week: string; readiness: number; hours: number; activeDays: number }[] = []
 
   for (let w = 4; w >= 0; w--) {
+    const weekEnd = new Date(today)
+    weekEnd.setDate(weekEnd.getDate() - w * 7)
     const weekDays = Array.from({ length: 7 }, (_, d) => {
-      const date = new Date(today)
-      date.setDate(date.getDate() - w * 7 - d)
+      const date = new Date(weekEnd)
+      date.setDate(date.getDate() - (6 - d))
       return localDateKey(date)
     })
     const weekEntries = weekDays.map(d => getDayEntry(log, d)).filter(Boolean) as ActivityLog[]
     const hours = parseFloat(weekEntries.reduce((a, l) => a + l.hoursSpent, 0).toFixed(1))
     const activeDays = weekEntries.filter(isExecutionDay).length
     const executions = weekEntries.reduce((a, l) => a + (l.executions ?? 0), 0)
-    const activityFactor = Math.min(1, (activeDays / 5) * 0.5 + (executions / 10) * 0.3 + (hours / 10) * 0.2)
-    const readiness = activeDays > 0
-      ? Math.round(base * (0.75 + activityFactor * 0.25))
-      : Math.max(0, Math.round(base * 0.5 - w * 2))
-    result.push({ week: `W${5 - w}`, readiness, hours })
+
+    const activityFactor = activeDays > 0
+      ? Math.min(1, (activeDays / 5) * 0.5 + (executions / 10) * 0.3 + (hours / 10) * 0.2)
+      : 0
+    const readiness = activeDays > 0 && assessment
+      ? Math.round(base * (0.85 + activityFactor * 0.15))
+      : 0
+
+    const label = new Date(weekDays[0]).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    result.push({ week: label, readiness, hours, activeDays })
   }
   return result
 }
@@ -986,7 +992,7 @@ export function analyzeFailures(failures: FailureEntry[]): FailurePattern | null
   const recoveryResources = (RESOURCE_DB[resourceKey] ?? RESOURCE_DB.dsa).slice(0, 3)
   const recovery = topTagCount > 0
     ? `Priority fix: ${topTag}. Start with "${recoveryResources[0]?.title ?? 'targeted practice'}" — ${recoveryResources[0]?.why ?? 'build consistency in your weakest area'}.`
-    : `Log root causes when adding rejections — Vertex maps them to DSA, Communication, or Aptitude resources automatically.`
+    : `Log root causes when adding rejections — PrepUp maps them to DSA, Communication, or Aptitude resources automatically.`
 
   return {
     topTag, topTagCount, totalFails: total,

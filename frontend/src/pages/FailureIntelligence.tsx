@@ -66,7 +66,7 @@ export default function FailureIntelligence() {
           <p className="text-label">Failure Intelligence</p>
           <h1 className="text-display font-display">Every rejection is data</h1>
           <p className="text-base" style={{ color: 'var(--text-2)' }}>
-            Vertex finds patterns in your rejections and turns them into actionable improvements.
+            PrepUp finds patterns in your rejections and turns them into actionable improvements.
           </p>
         </div>
         <button onClick={() => setShowForm(v => !v)} className="btn-accent">

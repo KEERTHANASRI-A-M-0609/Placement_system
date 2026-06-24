@@ -81,7 +81,7 @@ const BY_CATEGORY: Record<string, GuideTemplate> = {
     resourceUrl: '/applications',
     resourceLabel: 'Application Pipeline',
     guidelines: [
-      '1. Open Application Pipeline in Vertex',
+      '1. Open Application Pipeline in PrepUp',
       '2. Update status, deadline, and next action for the company',
       '3. Tailor resume/cover if applying today',
       '4. When verifying: paste portal confirmation or pipeline screenshot',

@@ -10,6 +10,7 @@ import { computeFromEvidence, getRoleMandatorySections, getRecommendedAddons } f
 import { backendAPI } from '../services/api'
 import { useCameraProctor } from '../hooks/useCameraProctor'
 import CommunicationSkillCheck from '../components/CommunicationSkillCheck'
+import PrepUpLogo from '../components/brand/PrepUpLogo'
 import {
   ChevronRight, ChevronLeft, GitBranch, Code2,
   CheckCircle2, Loader2, RefreshCcw, Home,
@@ -513,10 +514,8 @@ export default function AssessmentFlow() {
             <Home size={14} /> Back to Dashboard
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--primary)' }}>
-              <span className="text-white text-xs font-bold">C</span>
-            </div>
-            <span className="font-display font-bold text-base" style={{ color: 'var(--text)' }}>Vertex</span>
+            <PrepUpLogo size={28} />
+            <span className="font-display font-bold text-base" style={{ color: 'var(--text)' }}>PrepUp</span>
           </div>
           <div className="w-28" />
         </div>
