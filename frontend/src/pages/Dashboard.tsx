@@ -25,12 +25,15 @@ import AnimatedNumber from '../components/motion/AnimatedNumber'
 import LiveSyncStrip from '../components/LiveSyncStrip'
 import DashboardCoach from '../components/dashboard/DashboardCoach'
 import DailyReminderStrip from '../components/reminders/DailyReminderStrip'
+import AIEngineStrip from '../components/dashboard/AIEngineStrip'
 import { SKIPPED_MODULES_KEY } from '../services/storageKeys'
 
 type BackendData = {
   risk_level: string
   final_probability: number
   trend: string
+  ml_placement_pct?: number
+  ml_top_feature?: string
 }
 
 const MODULE_ICON: Record<AssessmentModuleId, typeof Mic> = {
@@ -98,6 +101,8 @@ export default function Dashboard() {
         risk_level: analysis.diagnosis.risk_level,
         final_probability: analysis.probability.final_probability,
         trend: analysis.momentum.trend,
+        ml_placement_pct: analysis.ml_placement?.placement_probability_pct,
+        ml_top_feature: analysis.ml_placement?.top_feature,
       })
     }).catch(() => {})
   }, [assessment, backendOnline, hasEvidence, consistencyScore])
@@ -138,6 +143,7 @@ export default function Dashboard() {
         isSyncing={isSyncing}
         onRefresh={pullLiveSession}
       />
+      <AIEngineStrip />
 
       {user && (
         <DailyReminderStrip

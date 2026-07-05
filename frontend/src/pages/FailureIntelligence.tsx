@@ -29,6 +29,11 @@ export default function FailureIntelligence() {
   const [form, setForm] = useState<Omit<FailureEntry, 'id'>>(EMPTY)
   const [tagInput, setTagInput] = useState('')
   const [backendRecovery, setBackendRecovery] = useState<string[]>([])
+  const [mlInsights, setMlInsights] = useState<{
+    insight?: string
+    clusters?: { label: string; size: number; keywords: string[] }[]
+    top_topics?: string[]
+  } | null>(null)
 
   const pattern = analyzeFailures(failures)
 
@@ -53,7 +58,10 @@ export default function FailureIntelligence() {
     const reasons = [entry.reason, ...entry.tags].filter(Boolean)
     if (reasons.length > 0) {
       backendAPI.failureIntelligence(reasons)
-        .then(res => setBackendRecovery(res.recovery_plan ?? []))
+        .then(res => {
+          setBackendRecovery(res.recovery_plan ?? [])
+          if (res.ml_insights) setMlInsights(res.ml_insights)
+        })
         .catch(() => {})
     }
     setForm(EMPTY); setTagInput(''); setShowForm(false)
@@ -94,6 +102,24 @@ export default function FailureIntelligence() {
 
       {pattern && (
         <InsightBanner label="Pattern Detected" message={pattern.insight} type="warn" />
+      )}
+
+      {mlInsights?.insight && (
+        <div className="card p-4 space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wide flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+            <Brain size={14} /> ML Failure Clustering (TF-IDF + K-Means)
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-2)' }}>{mlInsights.insight.replace(/\*\*/g, '')}</p>
+          {mlInsights.clusters && mlInsights.clusters.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {mlInsights.clusters.map(c => (
+                <span key={c.label} className="text-xs px-2 py-1 rounded-full" style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}>
+                  {c.label}: {c.keywords.slice(0, 3).join(', ')} ({c.size})
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Log form */}

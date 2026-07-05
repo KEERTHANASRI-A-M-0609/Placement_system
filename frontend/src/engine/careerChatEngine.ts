@@ -804,6 +804,41 @@ export function processChatMessage(raw: string, ctx: ChatContext): ChatMessage {
   )
 }
 
+/** Rule-based first; falls back to Gemini / ML coach when intent is unclear. */
+export async function processChatMessageWithAI(raw: string, ctx: ChatContext): Promise<ChatMessage> {
+  const msg = raw.trim()
+  let bestScore = 0
+  for (const handler of INTENTS) {
+    bestScore = Math.max(bestScore, handler.score(msg, ctx))
+  }
+  const kwHits = scoreByKeywords(msg)
+  const kwScore = kwHits[0]?.score ?? 0
+
+  if (bestScore >= 48 || kwScore >= 10 || matchRoute(msg)) {
+    return processChatMessage(raw, ctx)
+  }
+
+  try {
+    const { backendAPI } = await import('../services/api')
+    const res = await backendAPI.aiChat(msg, {
+      user: ctx.user,
+      assessment: ctx.assessment,
+      applications: ctx.applications,
+      failures: ctx.failures,
+      activityLog: ctx.activityLog,
+      platformData: ctx.platformData,
+    })
+    const tag = res.source === 'gemini' ? '\n\n_Gemini AI · PrepUp Coach_' : '\n\n_ML/NLP · PrepUp Coach_'
+    return assistant(res.text + tag, getChatStarters(ctx.loggedIn).slice(0, 3).map(s => ({
+      type: 'prompt' as const,
+      label: s.replace(/\?.*$/, '').slice(0, 22),
+      message: s,
+    })))
+  } catch {
+    return processChatMessage(raw, ctx)
+  }
+}
+
 export function createUserMessage(text: string): ChatMessage {
   return { id: id(), role: 'user', text, timestamp: Date.now() }
 }

@@ -90,23 +90,37 @@ export default function MockInterviewModule({ onComplete, onClose }: Props) {
     }
   }
 
-  const finishInterview = (answers: string[], qs: string[]) => {
+  const finishInterview = async (answers: string[], qs: string[]) => {
     const fullTranscript = answers.join('\n\n')
     const wordCount = fullTranscript.split(/\s+/).filter(Boolean).length
     const techWords = ['algorithm', 'complexity', 'design', 'implement', 'optimize', 'database', 'api']
     const techUsed = techWords.filter(w => fullTranscript.toLowerCase().includes(w)).length
 
-    const problemSolving = Math.min(Math.round((wordCount / 3) + techUsed * 8), 100)
-    const communication = Math.min(Math.round(wordCount / 2), 100)
-    const technicalDepth = Math.min(techUsed * 15 + (type !== 'behavioral' ? 30 : 10), 100)
-    const confidence = Math.min(Math.round(answers.filter(a => a.split(/\s+/).length > 30).length * 25), 100)
-    const score = Math.round((problemSolving + communication + technicalDepth + confidence) / 4)
+    let problemSolving = Math.min(Math.round((wordCount / 3) + techUsed * 8), 100)
+    let communication = Math.min(Math.round(wordCount / 2), 100)
+    let technicalDepth = Math.min(techUsed * 15 + (type !== 'behavioral' ? 30 : 10), 100)
+    let confidence = Math.min(Math.round(answers.filter(a => a.split(/\s+/).length > 30).length * 25), 100)
+    let score = Math.round((problemSolving + communication + technicalDepth + confidence) / 4)
+    let feedback: string[] = []
 
-    const feedback: string[] = []
-    if (communication < 60) feedback.push('Expand answers with STAR format — Situation, Task, Action, Result')
-    if (technicalDepth < 50) feedback.push('Use more technical vocabulary and mention trade-offs')
-    if (confidence < 50) feedback.push('Aim for 60+ words per answer — practice speaking without fillers')
-    if (feedback.length === 0) feedback.push('Strong interview performance — schedule a harder mock next')
+    try {
+      const { backendAPI } = await import('../../../services/api')
+      const ml = await backendAPI.aiInterviewScore(fullTranscript, type, qs)
+      score = ml.score
+      problemSolving = ml.problemSolving
+      communication = ml.communication
+      technicalDepth = ml.technicalDepth
+      confidence = ml.confidence
+      feedback = [
+        ...(ml.feedback || []),
+        ...(ml.improvements?.map(i => `[AI] ${i}`) || []),
+      ]
+    } catch {
+      if (communication < 60) feedback.push('Expand answers with STAR format — Situation, Task, Action, Result')
+      if (technicalDepth < 50) feedback.push('Use more technical vocabulary and mention trade-offs')
+      if (confidence < 50) feedback.push('Aim for 60+ words per answer — practice speaking without fillers')
+      if (feedback.length === 0) feedback.push('Strong interview performance — schedule a harder mock next')
+    }
 
     const session: MockInterviewSession = {
       id: Date.now().toString(),

@@ -156,7 +156,7 @@ export async function analyzeResume(file: File, targetDomain = 'Software Enginee
   const structuralScore = Math.min(Math.max(Math.round(score), 0), 100)
   const roleResult = computeResumeScore(structuralScore, text, targetDomain)
 
-  return {
+  const base: ResumeEvidence = {
     fileName: file.name,
     fileSize: file.size,
     wordCount: words.length,
@@ -171,5 +171,31 @@ export async function analyzeResume(file: File, targetDomain = 'Software Enginee
     targetDomain: roleResult.targetDomain,
     roleConflicts: roleResult.conflicts,
     roleWarnings: roleResult.warnings,
+  }
+
+  const ai = await enrichResumeWithAI(text, targetDomain, roleResult.structuralScore)
+  if (ai) {
+    base.aiTips = ai.ai_tips
+    base.aiSummary = ai.ai_summary
+    base.mlSimilarityPct = ai.similarity_pct
+    base.aiSource = ai.source
+    if (ai.similarity_pct > 0) {
+      base.roleAlignment = Math.round((base.roleAlignment ?? 0) * 0.5 + ai.similarity_pct * 0.5)
+    }
+  }
+
+  return base
+}
+
+export async function enrichResumeWithAI(
+  text: string,
+  targetDomain: string,
+  structuralScore: number,
+): Promise<{ ai_tips: string[]; similarity_pct: number; ai_summary: string; source: string } | null> {
+  try {
+    const { backendAPI } = await import('./api')
+    return await backendAPI.aiResumeInsights(text.slice(0, 8000), targetDomain, structuralScore)
+  } catch {
+    return null
   }
 }

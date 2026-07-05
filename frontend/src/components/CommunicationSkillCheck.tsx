@@ -156,7 +156,7 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
     timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000)
   }
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     recognitionRef.current?.stop()
     if (timerRef.current) clearInterval(timerRef.current)
 
@@ -175,7 +175,23 @@ export default function CommunicationSkillCheck({ onComplete, onSkip, proctorReq
     }
 
     const dur = Math.floor((Date.now() - startTimeRef.current) / 1000)
-    const evidence = analyzeTranscript(transcriptRef.current, dur)
+    let evidence = analyzeTranscript(transcriptRef.current, dur)
+    try {
+      const { backendAPI } = await import('../services/api')
+      const ml = await backendAPI.aiCommunicationScore(transcriptRef.current, dur)
+      evidence = {
+        ...evidence,
+        score: ml.fluency,
+        fluency: ml.fluency,
+        confidence: ml.confidence,
+        wordsPerMinute: ml.wpm,
+        fillerCount: ml.fillerCount,
+        wordCount: ml.wordCount,
+        strengths: ml.feedback.slice(0, 2),
+        recommendations: ml.feedback,
+        weaknesses: ml.fillerCount > 6 ? ['High filler word usage detected by ML model'] : evidence.weaknesses,
+      }
+    } catch { /* keep heuristic */ }
     setResult(evidence)
     setPhase('done')
   }

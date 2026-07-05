@@ -189,22 +189,32 @@ def recovery(data: MomentumRequest):
 @app.post("/failure-intelligence")
 def failure_intelligence(data: InterviewAnalysisRequest):
     from app.interviews.service import get_recovery_plan
+    from app.ml.failure_nlp import analyze_failure_clusters
 
     analysis = analyze_failures(data.reasons)
+    ml_insights = analyze_failure_clusters(data.reasons)
 
     if not analysis:
         return {
             "failure_breakdown": {},
             "largest_issue": "Insufficient data",
             "recovery_plan": get_recovery_plan(""),
+            "ml_insights": ml_insights,
         }
 
     largest_issue = max(analysis, key=analysis.get)
+    recovery = get_recovery_plan(largest_issue)
+    if ml_insights.get("top_topics"):
+        recovery = [
+            f"[ML] Focus area: {ml_insights['largest_cluster']}",
+            *recovery[:4],
+        ]
 
     return {
         "failure_breakdown": analysis,
         "largest_issue": largest_issue,
-        "recovery_plan": get_recovery_plan(largest_issue),
+        "recovery_plan": recovery,
+        "ml_insights": ml_insights,
     }
 
 @app.post("/weekly-review")
@@ -669,3 +679,98 @@ def whatsapp_commands():
         "webhook_path": "/whatsapp/webhook",
         "note": "Point Twilio sandbox webhook to this URL (use ngrok for local dev).",
     }
+
+
+# ─── AI / ML Intelligence Layer ─────────────────────────────────────────────
+
+class AIChatRequest(BaseModel):
+    message: str
+    context: dict = {}
+
+
+class InterviewAIRequest(BaseModel):
+    transcript: str
+    interview_type: str = "mixed"
+    questions: list[str] = []
+
+
+class CommunicationAIRequest(BaseModel):
+    transcript: str
+    duration_secs: int = 60
+
+
+class ResumeAIRequest(BaseModel):
+    resume_text: str
+    domain: str = "Software Engineering"
+    local_score: int | None = None
+
+
+class GapNarrativeRequest(BaseModel):
+    gaps: list[dict] = []
+    role: str = "Software Engineer"
+    companies: list[str] = []
+
+
+class FailureMLRequest(BaseModel):
+    reasons: list[str] = []
+    reflections: list[str] = []
+
+
+class PlacementMLRequest(BaseModel):
+    dsa: float = 0
+    aptitude: float = 0
+    communication: float = 0
+    resume: float = 0
+    projects: float = 0
+    interview: float = 0
+    momentum: float = 0
+    applications: float = 0
+    selections: float = 0
+
+
+@app.get("/ai/status")
+def ai_status_route():
+    from app.ai.llm_service import ai_status
+    return ai_status()
+
+
+@app.post("/ai/chat")
+def ai_chat(data: AIChatRequest):
+    from app.ai.llm_service import chat_with_ai
+    return chat_with_ai(data.message, data.context)
+
+
+@app.post("/ai/interview-score")
+def ai_interview_score(data: InterviewAIRequest):
+    from app.ai.llm_service import interview_feedback_ai
+    return interview_feedback_ai(data.transcript, data.interview_type, data.questions)
+
+
+@app.post("/ai/communication-score")
+def ai_communication_score(data: CommunicationAIRequest):
+    from app.ai.llm_service import communication_feedback_ai
+    return communication_feedback_ai(data.transcript, data.duration_secs)
+
+
+@app.post("/ai/resume-insights")
+def ai_resume_insights(data: ResumeAIRequest):
+    from app.ai.llm_service import resume_insights_ai
+    return resume_insights_ai(data.resume_text, data.domain, data.local_score)
+
+
+@app.post("/ai/gap-narrative")
+def ai_gap_narrative(data: GapNarrativeRequest):
+    from app.ai.llm_service import gap_narrative_ai
+    return gap_narrative_ai(data.gaps, data.role, data.companies)
+
+
+@app.post("/ml/placement-predict")
+def ml_placement_predict(data: PlacementMLRequest):
+    from app.ml.placement_predictor import predict_placement
+    return predict_placement(data.dict())
+
+
+@app.post("/ml/failure-cluster")
+def ml_failure_cluster(data: FailureMLRequest):
+    from app.ml.failure_nlp import analyze_failure_clusters
+    return analyze_failure_clusters(data.reasons, data.reflections)

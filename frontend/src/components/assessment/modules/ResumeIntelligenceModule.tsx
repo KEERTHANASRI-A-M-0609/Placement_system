@@ -100,6 +100,18 @@ export default function ResumeIntelligenceModule({ targetDomain, onComplete, onC
             </div>
           )}
 
+          {evidence.aiSummary && (
+            <div className="p-3 rounded-lg text-xs space-y-2" style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)' }}>
+              <p className="font-bold text-xs uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+                ML + NLP Resume Match {evidence.mlSimilarityPct != null ? `(${evidence.mlSimilarityPct}%)` : ''}
+              </p>
+              <p style={{ color: 'var(--text-2)' }}>{evidence.aiSummary.replace(/\*\*/g, '')}</p>
+              {evidence.aiTips?.map(tip => (
+                <p key={tip} style={{ color: 'var(--text-2)' }}>• {tip}</p>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
               { l: 'Words', v: evidence.wordCount },

@@ -26,6 +26,10 @@ export interface ResumeEvidence {
   targetDomain?: string
   roleConflicts?: string[]
   roleWarnings?: string[]
+  aiTips?: string[]
+  aiSummary?: string
+  mlSimilarityPct?: number
+  aiSource?: string
 }
 
 export interface CommEvidence {

@@ -7,7 +7,7 @@ import {
   type ChatMessage,
   type ChatContext,
   type ChatAction,
-  processChatMessage,
+  processChatMessageWithAI,
   createUserMessage,
   getChatStarters,
   buildWelcomeMessage,
@@ -60,6 +60,7 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [welcomed, setWelcomed] = useState(false)
+  const [thinking, setThinking] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const ctxRef = useRef<ChatContext>({ user: null, assessment: null, applications: [], activityLog: [], platformData: null, failures: [], loggedIn: false })
 
@@ -89,14 +90,20 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, open])
 
-  const send = useCallback((text: string) => {
+  const send = useCallback(async (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed || thinking) return
     const userMsg = createUserMessage(trimmed)
-    const reply = processChatMessage(trimmed, ctxRef.current)
-    setMessages(prev => [...prev, userMsg, reply])
+    setMessages(prev => [...prev, userMsg])
     setInput('')
-  }, [])
+    setThinking(true)
+    try {
+      const reply = await processChatMessageWithAI(trimmed, ctxRef.current)
+      setMessages(prev => [...prev, reply])
+    } finally {
+      setThinking(false)
+    }
+  }, [thinking])
 
   const handleNavigate = (path: string) => {
     if (guest) {
@@ -138,7 +145,7 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
                 <div>
                   <p className="text-sm font-bold leading-none">PrepUp Assistant</p>
                   <p className="text-[10px] text-white/80 mt-0.5">
-                    {ctx.loggedIn ? 'Knows your profile & scores' : 'Platform guide'}
+                    {ctx.loggedIn ? 'Gemini + ML career coach' : 'AI platform guide'}
                   </p>
                 </div>
               </div>
@@ -184,6 +191,13 @@ export default function CareerChatWidget({ guest = false }: { guest?: boolean })
                   </div>
                 </div>
               ))}
+              {thinking && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm dash-subtext" style={{ background: 'var(--bg-muted)' }}>
+                    Thinking…
+                  </div>
+                </div>
+              )}
             </div>
 
             {messages.length <= 2 && (
